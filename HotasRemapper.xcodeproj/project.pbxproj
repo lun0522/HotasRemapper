@@ -11,7 +11,25 @@
 		04EF9CE02B39113700D37C37 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04EF9CDF2B39113700D37C37 /* ContentView.swift */; };
 		04EF9CE22B39113700D37C37 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 04EF9CE12B39113700D37C37 /* Assets.xcassets */; };
 		04EF9CE52B39113700D37C37 /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 04EF9CE42B39113700D37C37 /* Preview Assets.xcassets */; };
+		04EF9CFB2B392B7600D37C37 /* libHotasRemapperLib.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 04EF9CF22B3926B500D37C37 /* libHotasRemapperLib.a */; };
 /* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		04EF9CF12B3926B500D37C37 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 04EF9CEC2B3926B500D37C37 /* HotasRemapperLib.xcodeproj */;
+			proxyType = 2;
+			remoteGlobalIDString = CA0097CEC5BDEE664463BF8F;
+			remoteInfo = "HotasRemapperLib-staticlib";
+		};
+		04EF9CF32B3926B500D37C37 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 04EF9CEC2B3926B500D37C37 /* HotasRemapperLib.xcodeproj */;
+			proxyType = 2;
+			remoteGlobalIDString = CA01408E4ACD7B20BD6545F4;
+			remoteInfo = "HotasRemapperLib-bin";
+		};
+/* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
 		04EF9CDA2B39113700D37C37 /* HotasRemapper.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = HotasRemapper.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -20,6 +38,9 @@
 		04EF9CE12B39113700D37C37 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		04EF9CE42B39113700D37C37 /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
 		04EF9CE62B39113700D37C37 /* HotasRemapper.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = HotasRemapper.entitlements; sourceTree = "<group>"; };
+		04EF9CEC2B3926B500D37C37 /* HotasRemapperLib.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = HotasRemapperLib.xcodeproj; path = HotasRemapperLib/HotasRemapperLib.xcodeproj; sourceTree = "<group>"; };
+		04EF9CF72B3929A200D37C37 /* HotasRemapper-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "HotasRemapper-Bridging-Header.h"; sourceTree = "<group>"; };
+		04EF9CF82B3929A200D37C37 /* HotasRemapperLib.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = HotasRemapperLib.h; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -27,6 +48,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				04EF9CFB2B392B7600D37C37 /* libHotasRemapperLib.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -36,8 +58,10 @@
 		04EF9CD12B39113700D37C37 = {
 			isa = PBXGroup;
 			children = (
+				04EF9CEC2B3926B500D37C37 /* HotasRemapperLib.xcodeproj */,
 				04EF9CDC2B39113700D37C37 /* HotasRemapper */,
 				04EF9CDB2B39113700D37C37 /* Products */,
+				04EF9CF52B3926E900D37C37 /* Frameworks */,
 			);
 			sourceTree = "<group>";
 		};
@@ -57,6 +81,8 @@
 				04EF9CE12B39113700D37C37 /* Assets.xcassets */,
 				04EF9CE62B39113700D37C37 /* HotasRemapper.entitlements */,
 				04EF9CE32B39113700D37C37 /* Preview Content */,
+				04EF9CF82B3929A200D37C37 /* HotasRemapperLib.h */,
+				04EF9CF72B3929A200D37C37 /* HotasRemapper-Bridging-Header.h */,
 			);
 			path = HotasRemapper;
 			sourceTree = "<group>";
@@ -67,6 +93,22 @@
 				04EF9CE42B39113700D37C37 /* Preview Assets.xcassets */,
 			);
 			path = "Preview Content";
+			sourceTree = "<group>";
+		};
+		04EF9CED2B3926B500D37C37 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				04EF9CF22B3926B500D37C37 /* libHotasRemapperLib.a */,
+				04EF9CF42B3926B500D37C37 /* HotasRemapperLib */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		04EF9CF52B3926E900D37C37 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Frameworks;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -101,6 +143,7 @@
 				TargetAttributes = {
 					04EF9CD92B39113700D37C37 = {
 						CreatedOnToolsVersion = 15.1;
+						LastSwiftMigration = 1510;
 					};
 				};
 			};
@@ -115,12 +158,35 @@
 			mainGroup = 04EF9CD12B39113700D37C37;
 			productRefGroup = 04EF9CDB2B39113700D37C37 /* Products */;
 			projectDirPath = "";
+			projectReferences = (
+				{
+					ProductGroup = 04EF9CED2B3926B500D37C37 /* Products */;
+					ProjectRef = 04EF9CEC2B3926B500D37C37 /* HotasRemapperLib.xcodeproj */;
+				},
+			);
 			projectRoot = "";
 			targets = (
 				04EF9CD92B39113700D37C37 /* HotasRemapper */,
 			);
 		};
 /* End PBXProject section */
+
+/* Begin PBXReferenceProxy section */
+		04EF9CF22B3926B500D37C37 /* libHotasRemapperLib.a */ = {
+			isa = PBXReferenceProxy;
+			fileType = archive.ar;
+			path = libHotasRemapperLib.a;
+			remoteRef = 04EF9CF12B3926B500D37C37 /* PBXContainerItemProxy */;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		04EF9CF42B3926B500D37C37 /* HotasRemapperLib */ = {
+			isa = PBXReferenceProxy;
+			fileType = "compiled.mach-o.executable";
+			path = HotasRemapperLib;
+			remoteRef = 04EF9CF32B3926B500D37C37 /* PBXContainerItemProxy */;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+/* End PBXReferenceProxy section */
 
 /* Begin PBXResourcesBuildPhase section */
 		04EF9CD82B39113700D37C37 /* Resources */ = {
@@ -270,6 +336,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = HotasRemapper/HotasRemapper.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
@@ -286,6 +353,8 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.flightsim.HotasRemapper;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OBJC_BRIDGING_HEADER = "HotasRemapper/HotasRemapper-Bridging-Header.h";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
 			};
 			name = Debug;
@@ -295,6 +364,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = HotasRemapper/HotasRemapper.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
@@ -311,6 +381,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.flightsim.HotasRemapper;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OBJC_BRIDGING_HEADER = "HotasRemapper/HotasRemapper-Bridging-Header.h";
 				SWIFT_VERSION = 5.0;
 			};
 			name = Release;

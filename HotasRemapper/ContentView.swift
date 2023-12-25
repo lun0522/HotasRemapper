@@ -11,6 +11,14 @@ struct ContentView: View {
   var body: some View {
     VStack {
       Text("Welcome to HOTAS Remapper!")
+      Button(
+        action: {
+          PrintProjectName()
+        },
+        label: {
+          Text("Log project name")
+        }
+      )
     }
     .padding()
   }

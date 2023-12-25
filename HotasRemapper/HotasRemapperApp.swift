@@ -7,8 +7,22 @@
 
 import SwiftUI
 
+private class AppDelegate: NSObject, NSApplicationDelegate {
+  func applicationDidFinishLaunching(_ notification: Notification) {
+    NSApp.activate()
+  }
+
+  func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication)
+    -> Bool
+  {
+    true
+  }
+}
+
 @main
 struct HotasRemapperApp: App {
+  @NSApplicationDelegateAdaptor private var appDelegate: AppDelegate
+
   var body: some Scene {
     WindowGroup {
       ContentView()
