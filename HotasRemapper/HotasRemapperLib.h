@@ -10,6 +10,7 @@
 
 #include <stdio.h>
 
-void InitLib();
+void* OpenLib();
+void CloseLib(void* handle);
 
 #endif /* HotasRemapperLib_h */

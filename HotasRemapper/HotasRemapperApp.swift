@@ -8,15 +8,18 @@
 import SwiftUI
 
 private class AppDelegate: NSObject, NSApplicationDelegate {
+  var libHandle: UnsafeMutableRawPointer? = nil
+
   func applicationDidFinishLaunching(_ notification: Notification) {
-    InitLib()
     NSApp.activate()
+    libHandle = OpenLib()
   }
 
-  func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication)
-    -> Bool
+  func applicationShouldTerminate(_ sender: NSApplication)
+    -> NSApplication.TerminateReply
   {
-    true
+    CloseLib(libHandle)
+    return NSApplication.TerminateReply.terminateNow
   }
 }
 
