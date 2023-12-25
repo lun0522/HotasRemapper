@@ -9,6 +9,7 @@ import SwiftUI
 
 private class AppDelegate: NSObject, NSApplicationDelegate {
   func applicationDidFinishLaunching(_ notification: Notification) {
+    InitLib()
     NSApp.activate()
   }
 

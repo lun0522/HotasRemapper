@@ -10,6 +10,6 @@
 
 #include <stdio.h>
 
-void PrintProjectName();
+void InitLib();
 
 #endif /* HotasRemapperLib_h */
