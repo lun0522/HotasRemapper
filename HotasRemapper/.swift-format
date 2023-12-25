@@ -1,0 +1,10 @@
+{
+  "indentSwitchCaseLabels" : true,
+  "lineBreakAroundMultilineExpressionChainComponents" : true,
+  "lineLength" : 80,
+  "rules" : {
+    "OmitExplicitReturns" : true,
+  },
+  "tabWidth" : 2,
+  "version" : 1
+}
