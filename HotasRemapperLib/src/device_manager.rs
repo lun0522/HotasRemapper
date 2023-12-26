@@ -77,31 +77,18 @@ impl DeviceManager {
 
     pub fn handle_input_value(&mut self, value: IOHIDValueRef) {
         if let Some(input_event) = HIDDevice::read_input_event(value) {
-            if let Some(device_type) =
-                self.find_device_type(input_event.device_ref)
-            {
-                println!(
-                    "Input from {:?}: usage {}, value {}",
-                    device_type, input_event.usage, input_event.value,
-                );
+            if let Some(device) = self.joystick_device.as_ref() {
+                if device.device_ref() == input_event.device_ref {
+                    device.handle_input_event(input_event);
+                    return;
+                }
+            }
+            if let Some(device) = self.throttle_device.as_ref() {
+                if device.device_ref() == input_event.device_ref {
+                    device.handle_input_event(input_event);
+                    return;
+                }
             }
         }
-    }
-
-    fn find_device_type(
-        &self,
-        device_ref: IOHIDDeviceRef,
-    ) -> Option<DeviceType> {
-        if let Some(device) = self.joystick_device.as_ref() {
-            if device.device_ref() == device_ref {
-                return Some(DeviceType::Joystick);
-            }
-        }
-        if let Some(device) = self.throttle_device.as_ref() {
-            if device.device_ref() == device_ref {
-                return Some(DeviceType::Throttle);
-            }
-        }
-        None
     }
 }

@@ -1,21 +1,31 @@
+use std::collections::HashMap;
 use std::ffi::c_char;
 use std::ffi::c_void;
+use std::ptr::null_mut;
 
+use core_foundation::array::CFArrayGetCount;
+use core_foundation::array::CFArrayGetValueAtIndex;
 use core_foundation::base::TCFType;
 use core_foundation::string::CFStringRef;
 use io_kit_sys::hid::base::IOHIDDeviceRef;
+use io_kit_sys::hid::base::IOHIDElementRef;
 use io_kit_sys::hid::base::IOHIDValueCallback;
 use io_kit_sys::hid::base::IOHIDValueRef;
+use io_kit_sys::hid::device::IOHIDDeviceCopyMatchingElements;
 use io_kit_sys::hid::device::IOHIDDeviceGetProperty;
 use io_kit_sys::hid::device::IOHIDDeviceRegisterInputValueCallback;
+use io_kit_sys::hid::element::IOHIDElementGetCookie;
 use io_kit_sys::hid::element::IOHIDElementGetDevice;
-use io_kit_sys::hid::element::IOHIDElementGetUsage;
+use io_kit_sys::hid::keys::kIOHIDOptionsTypeNone;
 use io_kit_sys::hid::keys::kIOHIDProductIDKey;
 use io_kit_sys::hid::keys::kIOHIDProductKey;
 use io_kit_sys::hid::keys::kIOHIDVendorIDKey;
+use io_kit_sys::hid::keys::IOHIDElementCookie;
 use io_kit_sys::hid::value::IOHIDValueGetElement;
 use io_kit_sys::hid::value::IOHIDValueGetIntegerValue;
 
+use crate::hid_device_input::DeviceInput;
+use crate::hid_device_input::InputType;
 use crate::utils::new_cf_string;
 use crate::utils::new_string;
 
@@ -59,21 +69,23 @@ impl DeviceId {
 impl std::fmt::Display for DeviceId {
     fn fmt(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
         formatter.write_fmt(format_args!(
-            "[device name: {:?}, vendor id: {:#x}, product id: {:#x}]",
+            "{{device name: {:?}, vendor id: {:#x}, product id: {:#x}}}",
             self.device_name, self.vendor_id, self.product_id,
         ))
     }
 }
 
+#[derive(Debug)]
 pub(crate) struct InputEvent {
     pub device_ref: IOHIDDeviceRef,
-    pub usage: u32,
+    pub input_id: IOHIDElementCookie,
     pub value: i32,
 }
 
 /// A struct wrapping `IOHIDDeviceRef` from IOKit.
 pub(crate) struct HIDDevice {
     device_id: DeviceId,
+    input_map: HashMap<IOHIDElementCookie, DeviceInput>,
 }
 
 impl HIDDevice {
@@ -82,16 +94,34 @@ impl HIDDevice {
         device_id: DeviceId,
         input_value_handler: &dyn HandleInputValue,
     ) -> Self {
+        let input_map = build_input_map(device_id.device_ref);
         IOHIDDeviceRegisterInputValueCallback(
             device_id.device_ref,
             input_value_handler.get_callback(),
             input_value_handler.get_pinned_pointer(),
         );
-        Self { device_id }
+        Self {
+            device_id,
+            input_map,
+        }
     }
 
     pub fn device_ref(&self) -> IOHIDDeviceRef {
         self.device_id.device_ref
+    }
+
+    pub fn handle_input_event(&self, input_event: InputEvent) {
+        match self.input_map.get(&input_event.input_id) {
+            Some(device_input) => {
+                if !matches!(device_input.input_type, InputType::Other) {
+                    println!(
+                        "Got input from {}: {}",
+                        device_input.name, input_event.value
+                    );
+                }
+            }
+            None => println!("Unknown input event: {:?}", input_event),
+        }
     }
 
     pub fn read_input_event(value: IOHIDValueRef) -> Option<InputEvent> {
@@ -106,9 +136,32 @@ impl HIDDevice {
             }
             Some(InputEvent {
                 device_ref: IOHIDElementGetDevice(element),
-                usage: IOHIDElementGetUsage(element),
+                input_id: IOHIDElementGetCookie(element),
                 value: IOHIDValueGetIntegerValue(value) as i32,
             })
         }
     }
+}
+
+/// Safety: the caller must ensure the device is alive.
+unsafe fn build_input_map(
+    device: IOHIDDeviceRef,
+) -> HashMap<IOHIDElementCookie, DeviceInput> {
+    let mut input_map = HashMap::<IOHIDElementCookie, DeviceInput>::new();
+    let mut index_tracker = HashMap::<InputType, i32>::new();
+    let elements = IOHIDDeviceCopyMatchingElements(
+        device,
+        null_mut(),
+        kIOHIDOptionsTypeNone,
+    );
+    for i in 0..CFArrayGetCount(elements) {
+        let element = CFArrayGetValueAtIndex(elements, i) as IOHIDElementRef;
+        if let Some((identifier, device_input)) =
+            DeviceInput::try_new(element, &mut index_tracker)
+        {
+            input_map.insert(identifier, device_input);
+        }
+    }
+    println!("Found inputs: {:?}", index_tracker);
+    input_map
 }

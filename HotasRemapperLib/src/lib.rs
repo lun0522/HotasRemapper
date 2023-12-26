@@ -3,6 +3,7 @@
 
 mod device_manager;
 mod hid_device;
+mod hid_device_input;
 mod hid_manager;
 pub(crate) mod utils;
 
