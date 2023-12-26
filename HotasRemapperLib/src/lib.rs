@@ -1,8 +1,10 @@
 // We use camel case for the project name in Xcode convention.
 #![allow(non_snake_case)]
 
-pub(crate) mod bindings;
+mod device_manager;
+mod hid_device;
 mod hid_manager;
+pub(crate) mod utils;
 
 use std::ffi::c_void;
 

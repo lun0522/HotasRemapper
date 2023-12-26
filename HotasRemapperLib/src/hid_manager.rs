@@ -3,7 +3,6 @@ use std::ffi::c_char;
 use std::ffi::c_void;
 use std::marker::PhantomPinned;
 use std::pin::Pin;
-use std::ptr::null_mut;
 
 use anyhow::bail;
 use anyhow::Result;
@@ -34,10 +33,13 @@ use io_kit_sys::hid::usage_tables::kHIDUsage_GD_Joystick;
 use io_kit_sys::ret::kIOReturnSuccess;
 use io_kit_sys::ret::IOReturn;
 
-use crate::bindings::new_cf_string;
+use crate::device_manager::DeviceManager;
+use crate::utils::new_cf_string;
 
+/// A struct wrapping `IOHIDManagerRef` from IOKit.
 pub(crate) struct HIDManager {
     manager_ref: IOHIDManagerRef,
+    device_manager: DeviceManager,
     // We want to make sure the `HIDManager` doesn't get moved, so the user can
     // rely on an everlasting pointer to it.
     _pinned_marker: PhantomPinned,
@@ -49,17 +51,35 @@ impl HIDManager {
         let manager_ref = create_manager();
         // Safe because the manager will be alive until we call `CFRelease()`.
         unsafe {
-            set_device_matching_criteria(&manager_ref)?;
+            set_device_matching_criteria(&manager_ref);
             if let Err(e) = open_manager(&manager_ref) {
                 close_and_release_manager(&manager_ref);
                 return Err(e);
             }
             start_manager(&manager_ref);
         }
-        Ok(Box::pin(Self {
+        let mut manager = Box::pin(Self {
             manager_ref,
+            device_manager: DeviceManager::new(),
             _pinned_marker: PhantomPinned,
-        }))
+        });
+        // Safe because we are passing in a pointer to a pinned `HIDManager`.
+        unsafe {
+            set_device_callbacks(
+                &*manager.as_mut() as *const HIDManager as *mut _
+            );
+        }
+        Ok(manager)
+    }
+
+    #[inline]
+    fn handle_device_matched(&mut self, device: IOHIDDeviceRef) {
+        self.device_manager.handle_device_matched(device);
+    }
+
+    #[inline]
+    fn handle_device_removed(&mut self, device: IOHIDDeviceRef) {
+        self.device_manager.handle_device_removed(device);
     }
 }
 
@@ -80,22 +100,19 @@ fn create_manager() -> IOHIDManagerRef {
 }
 
 /// The caller must ensure `manager_ref` is still alive.
-unsafe fn set_device_matching_criteria(
-    manager_ref: &IOHIDManagerRef,
-) -> Result<()> {
+unsafe fn set_device_matching_criteria(manager_ref: &IOHIDManagerRef) {
     let new_kv_pair =
-        |key: *const c_char, value: u32| -> Result<(CFString, CFNumber)> {
-            Ok((new_cf_string(key)?, CFNumber::from(value as i32)))
+        |key: *const c_char, value: u32| -> (CFString, CFNumber) {
+            (new_cf_string(key).unwrap(), CFNumber::from(value as i32))
         };
     let criteria = CFDictionary::from_CFType_pairs(&[
-        new_kv_pair(kIOHIDDeviceUsagePageKey, kHIDPage_GenericDesktop)?,
-        new_kv_pair(kIOHIDDeviceUsageKey, kHIDUsage_GD_Joystick)?,
+        new_kv_pair(kIOHIDDeviceUsagePageKey, kHIDPage_GenericDesktop),
+        new_kv_pair(kIOHIDDeviceUsageKey, kHIDUsage_GD_Joystick),
     ]);
     IOHIDManagerSetDeviceMatchingMultiple(
         *manager_ref,
         CFArray::from_CFTypes(&[criteria]).as_concrete_TypeRef(),
     );
-    Ok(())
 }
 
 /// The caller must ensure `manager_ref` is still alive.
@@ -107,22 +124,27 @@ unsafe fn open_manager(manager_ref: &IOHIDManagerRef) -> Result<()> {
     Ok(())
 }
 
+/// The caller must ensure `hid_manager` is a valid pointer, and the
+/// `HIDManager` itself is pinned in memory.
+unsafe fn set_device_callbacks(hid_manager: *mut HIDManager) {
+    IOHIDManagerRegisterDeviceMatchingCallback(
+        (*hid_manager).manager_ref,
+        handle_device_matched,
+        hid_manager as *mut _,
+    );
+    IOHIDManagerRegisterDeviceRemovalCallback(
+        (*hid_manager).manager_ref,
+        handle_device_removed,
+        hid_manager as *mut _,
+    );
+}
+
 /// The caller must ensure `manager_ref` is still alive.
 unsafe fn start_manager(manager_ref: &IOHIDManagerRef) {
     IOHIDManagerScheduleWithRunLoop(
         *manager_ref,
         CFRunLoopGetCurrent(),
         kCFRunLoopDefaultMode,
-    );
-    IOHIDManagerRegisterDeviceMatchingCallback(
-        *manager_ref,
-        handle_device_matched,
-        null_mut(),
-    );
-    IOHIDManagerRegisterDeviceRemovalCallback(
-        *manager_ref,
-        handle_device_removed,
-        null_mut(),
     );
 }
 
@@ -138,23 +160,29 @@ unsafe fn stop_manager(manager_ref: &IOHIDManagerRef) {
 /// The caller must ensure `manager_ref` is still alive.
 unsafe fn close_and_release_manager(manager_ref: &IOHIDManagerRef) {
     IOHIDManagerClose(*manager_ref, kIOHIDOptionsTypeNone);
-    CFRelease(*manager_ref as *mut c_void);
+    CFRelease(*manager_ref as *mut _);
 }
 
 extern "C" fn handle_device_matched(
-    _context: *mut c_void,
+    context: *mut c_void,
     _result: IOReturn,
     _sender: *mut c_void,
-    _device: IOHIDDeviceRef,
+    device: IOHIDDeviceRef,
 ) {
-    println!("Device matched");
+    // Safe because we stored a pointer to a pinned `HIDManager`.
+    if let Some(manager) = unsafe { (context as *mut HIDManager).as_mut() } {
+        manager.handle_device_matched(device);
+    }
 }
 
 extern "C" fn handle_device_removed(
-    _context: *mut c_void,
+    context: *mut c_void,
     _result: IOReturn,
     _sender: *mut c_void,
-    _device: IOHIDDeviceRef,
+    device: IOHIDDeviceRef,
 ) {
-    println!("Device removed");
+    // Safe because we stored a pointer to a pinned `HIDManager`.
+    if let Some(manager) = unsafe { (context as *mut HIDManager).as_mut() } {
+        manager.handle_device_removed(device);
+    }
 }
