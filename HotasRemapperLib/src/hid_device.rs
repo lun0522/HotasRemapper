@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::convert::From;
 use std::ffi::c_char;
 use std::ffi::c_void;
 use std::ptr::null_mut;
@@ -19,6 +20,7 @@ use io_kit_sys::hid::element::IOHIDElementGetDevice;
 use io_kit_sys::hid::keys::kIOHIDOptionsTypeNone;
 use io_kit_sys::hid::keys::kIOHIDProductIDKey;
 use io_kit_sys::hid::keys::kIOHIDProductKey;
+use io_kit_sys::hid::keys::kIOHIDTransportKey;
 use io_kit_sys::hid::keys::kIOHIDVendorIDKey;
 use io_kit_sys::hid::keys::IOHIDElementCookie;
 use io_kit_sys::hid::value::IOHIDValueGetElement;
@@ -36,16 +38,17 @@ pub(crate) trait HandleInputValue {
     fn get_callback(&self) -> IOHIDValueCallback;
 }
 
-pub(crate) struct DeviceId {
+pub(crate) struct DeviceProperty {
     pub device_ref: IOHIDDeviceRef,
     pub device_name: String,
     pub vendor_id: u32,
     pub product_id: u32,
+    pub transport: String,
 }
 
-impl DeviceId {
+impl DeviceProperty {
     pub fn from_device(device_ref: IOHIDDeviceRef) -> Self {
-        // Safe because `device` is alive, and `key` will be static strings.
+        // Safe because `device_ref` is alive, and `key` will be static strings.
         let get_property = |key: *const c_char| unsafe {
             IOHIDDeviceGetProperty(
                 device_ref,
@@ -54,31 +57,49 @@ impl DeviceId {
         };
         // Safe because the system guarantees `IOHIDDeviceGetProperty()` returns
         // a pointer that is either NULL or points to a valid string.
-        let device_name = unsafe {
-            get_property(kIOHIDProductKey)
+        let get_string_property = |key: *const c_char, default: &str| unsafe {
+            get_property(key)
                 .as_ref()
                 .and_then(|name| {
                     new_string(name as *const c_void as CFStringRef).ok()
                 })
-                .unwrap_or("Unknown device".to_string())
+                .unwrap_or(default.to_string())
         };
         Self {
             device_ref,
-            // Safe because the system guarantees the device name string is
-            // valid.
-            device_name,
+            device_name: get_string_property(
+                kIOHIDProductKey,
+                "Unknown device",
+            ),
             vendor_id: get_property(kIOHIDVendorIDKey) as u32,
             product_id: get_property(kIOHIDProductIDKey) as u32,
+            transport: get_string_property(
+                kIOHIDTransportKey,
+                "Unknown transport",
+            ),
         }
     }
 }
 
-impl std::fmt::Display for DeviceId {
+impl std::fmt::Display for DeviceProperty {
     fn fmt(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
         formatter.write_fmt(format_args!(
-            "{{device name: {:?}, vendor id: {:#x}, product id: {:#x}}}",
-            self.device_name, self.vendor_id, self.product_id,
+            "{{device name: {:?}, vendor id: {:#x}, product id: {:#x}, \
+            transport: {:?}}}",
+            self.device_name, self.vendor_id, self.product_id, self.transport,
         ))
+    }
+}
+
+pub(crate) struct DeviceId {
+    pub device_ref: IOHIDDeviceRef,
+}
+
+impl From<DeviceProperty> for DeviceId {
+    fn from(property: DeviceProperty) -> Self {
+        Self {
+            device_ref: property.device_ref,
+        }
     }
 }
 

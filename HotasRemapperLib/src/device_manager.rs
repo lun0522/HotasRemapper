@@ -4,6 +4,7 @@ use io_kit_sys::hid::base::IOHIDDeviceRef;
 use io_kit_sys::hid::base::IOHIDValueRef;
 
 use crate::hid_device::DeviceId;
+use crate::hid_device::DeviceProperty;
 use crate::hid_device::HIDDevice;
 use crate::hid_device::HandleInputValue;
 
@@ -13,14 +14,14 @@ enum DeviceType {
     Throttle,
 }
 
-impl TryFrom<&DeviceId> for DeviceType {
+impl TryFrom<&DeviceProperty> for DeviceType {
     type Error = &'static str;
 
-    fn try_from(device_id: &DeviceId) -> Result<Self, Self::Error> {
-        match device_id.device_name.as_str() {
+    fn try_from(property: &DeviceProperty) -> Result<Self, Self::Error> {
+        match property.device_name.as_str() {
             "Throttle - HOTAS Warthog" => Ok(Self::Joystick),
             "Joystick - HOTAS Warthog" => Ok(Self::Throttle),
-            _ => Err("Unrecognized"),
+            _ => Err("Unknown type"),
         }
     }
 }
@@ -47,32 +48,34 @@ impl DeviceManager {
         let open_device = |device_id: DeviceId| unsafe {
             HIDDevice::open_device(device_id, input_value_handler)
         };
-        let device_id = DeviceId::from_device(device);
-        if let Some(device_type) = DeviceType::try_from(&device_id).ok() {
+        let device_property = DeviceProperty::from_device(device);
+        if let Some(device_type) = DeviceType::try_from(&device_property).ok() {
             match device_type {
                 DeviceType::Joystick => {
                     if self.joystick_device.is_none() {
-                        println!("Found Joystick device: {}", device_id);
+                        println!("Found Joystick device: {}", device_property);
                         // Safe because the device is alive.
-                        self.joystick_device = Some(open_device(device_id));
+                        self.joystick_device =
+                            Some(open_device(device_property.into()));
                         return;
                     }
                 }
                 DeviceType::Throttle => {
                     if self.throttle_device.is_none() {
-                        println!("Found Throttle device: {}", device_id);
+                        println!("Found Throttle device: {}", device_property);
                         // Safe because the device is alive.
-                        self.throttle_device = Some(open_device(device_id));
+                        self.throttle_device =
+                            Some(open_device(device_property.into()));
                         return;
                     }
                 }
             }
         }
-        println!("Ignoring device: {}", device_id);
+        println!("Ignoring device: {}", device_property);
     }
 
     pub fn handle_device_removed(&mut self, device: IOHIDDeviceRef) {
-        println!("Device removed: {}", DeviceId::from_device(device));
+        println!("Device removed: {}", DeviceProperty::from_device(device));
     }
 
     pub fn handle_input_value(&mut self, value: IOHIDValueRef) {
