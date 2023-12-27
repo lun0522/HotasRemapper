@@ -9,14 +9,16 @@ pub(crate) mod utils;
 
 use std::ffi::c_void;
 
-use hid_manager::HIDManager;
+use device_manager::DeviceManager;
+
+type HIDManager = hid_manager::HIDManager<DeviceManager>;
 
 /// The caller must call `CloseLib()` at the end with the pointer returned by
 /// `OpenLib()`.
 #[no_mangle]
 pub extern "C" fn OpenLib() -> *mut c_void {
     println!("Opening {}", project_name());
-    match HIDManager::new() {
+    match HIDManager::new(DeviceManager::new()) {
         Ok(mut manager) => {
             let manager_ptr = &*manager.as_mut() as *const HIDManager as *mut _;
             // We rely on the caller to call `CloseLib()` at the end to release

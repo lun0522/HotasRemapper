@@ -7,6 +7,7 @@ use crate::hid_device::DeviceId;
 use crate::hid_device::DeviceProperty;
 use crate::hid_device::HIDDevice;
 use crate::hid_device::HandleInputValue;
+use crate::hid_manager::HandleDeviceEvent;
 
 #[derive(Debug)]
 enum DeviceType {
@@ -19,8 +20,8 @@ impl TryFrom<&DeviceProperty> for DeviceType {
 
     fn try_from(property: &DeviceProperty) -> Result<Self, Self::Error> {
         match property.device_name.as_str() {
-            "Throttle - HOTAS Warthog" => Ok(Self::Joystick),
-            "Joystick - HOTAS Warthog" => Ok(Self::Throttle),
+            "Joystick - HOTAS Warthog" => Ok(Self::Joystick),
+            "Throttle - HOTAS Warthog" => Ok(Self::Throttle),
             _ => Err("Unknown type"),
         }
     }
@@ -38,8 +39,10 @@ impl DeviceManager {
             throttle_device: None,
         }
     }
+}
 
-    pub fn handle_device_matched(
+impl HandleDeviceEvent for DeviceManager {
+    fn handle_device_matched(
         &mut self,
         device: IOHIDDeviceRef,
         input_value_handler: &dyn HandleInputValue,
@@ -74,11 +77,11 @@ impl DeviceManager {
         println!("Ignoring device: {}", device_property);
     }
 
-    pub fn handle_device_removed(&mut self, device: IOHIDDeviceRef) {
+    fn handle_device_removed(&mut self, device: IOHIDDeviceRef) {
         println!("Device removed: {}", DeviceProperty::from_device(device));
     }
 
-    pub fn handle_input_value(&mut self, value: IOHIDValueRef) {
+    fn handle_input_value(&mut self, value: IOHIDValueRef) {
         if let Some(input_event) = HIDDevice::read_input_event(value) {
             if let Some(device) = self.joystick_device.as_ref() {
                 if device.device_ref() == input_event.device_ref {
