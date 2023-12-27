@@ -50,7 +50,7 @@ impl DeviceInput {
         element: IOHIDElementRef,
         index_tracker: &mut HashMap<InputType, i32>,
     ) -> Option<(IOHIDElementCookie, Self)> {
-        let mut new_input = |input_type: InputType| -> Self {
+        let mut new_input = |input_type: InputType| {
             let index: &mut i32 = index_tracker.entry(input_type).or_default();
             let curr_index = *index;
             *index += 1;

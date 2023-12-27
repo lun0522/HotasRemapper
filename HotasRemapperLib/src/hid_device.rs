@@ -52,14 +52,21 @@ impl DeviceId {
                 new_cf_string(key).unwrap().as_concrete_TypeRef(),
             )
         };
+        // Safe because the system guarantees `IOHIDDeviceGetProperty()` returns
+        // a pointer that is either NULL or points to a valid string.
+        let device_name = unsafe {
+            get_property(kIOHIDProductKey)
+                .as_ref()
+                .and_then(|name| {
+                    new_string(name as *const c_void as CFStringRef).ok()
+                })
+                .unwrap_or("Unknown device".to_string())
+        };
         Self {
             device_ref,
             // Safe because the system guarantees the device name string is
             // valid.
-            device_name: unsafe {
-                new_string(get_property(kIOHIDProductKey) as CFStringRef)
-            }
-            .unwrap_or("Unknown device".to_string()),
+            device_name,
             vendor_id: get_property(kIOHIDVendorIDKey) as u32,
             product_id: get_property(kIOHIDProductIDKey) as u32,
         }
