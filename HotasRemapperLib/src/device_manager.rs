@@ -1,42 +1,23 @@
+use std::collections::HashMap;
 use std::convert::TryFrom;
 
 use io_kit_sys::hid::base::IOHIDDeviceRef;
 use io_kit_sys::hid::base::IOHIDValueRef;
 
-use crate::hid_device::DeviceId;
 use crate::hid_device::DeviceProperty;
+use crate::hid_device::DeviceType;
 use crate::hid_device::HIDDevice;
 use crate::hid_device::HandleInputValue;
 use crate::hid_manager::HandleDeviceEvent;
 
-#[derive(Debug)]
-enum DeviceType {
-    Joystick,
-    Throttle,
-}
-
-impl TryFrom<&DeviceProperty> for DeviceType {
-    type Error = &'static str;
-
-    fn try_from(property: &DeviceProperty) -> Result<Self, Self::Error> {
-        match property.device_name.as_str() {
-            "Joystick - HOTAS Warthog" => Ok(Self::Joystick),
-            "Throttle - HOTAS Warthog" => Ok(Self::Throttle),
-            _ => Err("Unknown type"),
-        }
-    }
-}
-
 pub(crate) struct DeviceManager {
-    joystick_device: Option<HIDDevice>,
-    throttle_device: Option<HIDDevice>,
+    devices: HashMap<IOHIDDeviceRef, HIDDevice>,
 }
 
 impl DeviceManager {
     pub fn new() -> Self {
         Self {
-            joystick_device: None,
-            throttle_device: None,
+            devices: Default::default(),
         }
     }
 }
@@ -44,56 +25,44 @@ impl DeviceManager {
 impl HandleDeviceEvent for DeviceManager {
     fn handle_device_matched(
         &mut self,
-        device: IOHIDDeviceRef,
+        device_ref: IOHIDDeviceRef,
         input_value_handler: &dyn HandleInputValue,
     ) {
-        // Safe because the device is alive.
-        let open_device = |device_id: DeviceId| unsafe {
-            HIDDevice::open_device(device_id, input_value_handler)
-        };
-        let device_property = DeviceProperty::from_device(device);
+        let device_property = DeviceProperty::from_device(device_ref);
         if let Some(device_type) = DeviceType::try_from(&device_property).ok() {
-            match device_type {
-                DeviceType::Joystick => {
-                    if self.joystick_device.is_none() {
-                        println!("Found Joystick device: {}", device_property);
-                        // Safe because the device is alive.
-                        self.joystick_device =
-                            Some(open_device(device_property.into()));
-                        return;
-                    }
-                }
-                DeviceType::Throttle => {
-                    if self.throttle_device.is_none() {
-                        println!("Found Throttle device: {}", device_property);
-                        // Safe because the device is alive.
-                        self.throttle_device =
-                            Some(open_device(device_property.into()));
-                        return;
-                    }
-                }
+            // Open a new device only if we haven't found any devices of the
+            // same type.
+            if !self
+                .devices
+                .iter()
+                .any(|(_, device)| device.device_type() == device_type)
+            {
+                println!("Found {:?} device: {}", device_type, device_property);
+                // Safe because the device is alive.
+                self.devices.insert(device_ref, unsafe {
+                    HIDDevice::open_device(
+                        device_ref,
+                        device_type,
+                        input_value_handler,
+                    )
+                });
+                return;
             }
         }
         println!("Ignoring device: {}", device_property);
     }
 
-    fn handle_device_removed(&mut self, device: IOHIDDeviceRef) {
-        println!("Device removed: {}", DeviceProperty::from_device(device));
+    fn handle_device_removed(&mut self, device_ref: IOHIDDeviceRef) {
+        if let Some(device) = self.devices.remove(&device_ref) {
+            println!("Removed {:?} device", device.device_type());
+        }
     }
 
     fn handle_input_value(&mut self, value: IOHIDValueRef) {
         if let Some(input_event) = HIDDevice::read_input_event(value) {
-            if let Some(device) = self.joystick_device.as_ref() {
-                if device.device_ref() == input_event.device_ref {
-                    device.handle_input_event(input_event);
-                    return;
-                }
-            }
-            if let Some(device) = self.throttle_device.as_ref() {
-                if device.device_ref() == input_event.device_ref {
-                    device.handle_input_event(input_event);
-                    return;
-                }
+            if let Some(device) = self.devices.get(&input_event.device_ref) {
+                device.handle_input_event(input_event);
+                return;
             }
         }
     }

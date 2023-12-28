@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::convert::From;
 use std::ffi::c_char;
 use std::ffi::c_void;
 use std::ptr::null_mut;
@@ -39,7 +38,6 @@ pub(crate) trait HandleInputValue {
 }
 
 pub(crate) struct DeviceProperty {
-    pub device_ref: IOHIDDeviceRef,
     pub device_name: String,
     pub vendor_id: u32,
     pub product_id: u32,
@@ -66,7 +64,6 @@ impl DeviceProperty {
                 .unwrap_or(default.to_string())
         };
         Self {
-            device_ref,
             device_name: get_string_property(
                 kIOHIDProductKey,
                 "Unknown device",
@@ -91,14 +88,20 @@ impl std::fmt::Display for DeviceProperty {
     }
 }
 
-pub(crate) struct DeviceId {
-    pub device_ref: IOHIDDeviceRef,
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum DeviceType {
+    Joystick,
+    Throttle,
 }
 
-impl From<DeviceProperty> for DeviceId {
-    fn from(property: DeviceProperty) -> Self {
-        Self {
-            device_ref: property.device_ref,
+impl TryFrom<&DeviceProperty> for DeviceType {
+    type Error = &'static str;
+
+    fn try_from(property: &DeviceProperty) -> Result<Self, Self::Error> {
+        match property.device_name.as_str() {
+            "Joystick - HOTAS Warthog" => Ok(Self::Joystick),
+            "Throttle - HOTAS Warthog" => Ok(Self::Throttle),
+            _ => Err("Unknown type"),
         }
     }
 }
@@ -112,30 +115,30 @@ pub(crate) struct InputEvent {
 
 /// A struct wrapping `IOHIDDeviceRef` from IOKit.
 pub(crate) struct HIDDevice {
-    device_id: DeviceId,
+    device_type: DeviceType,
     input_map: HashMap<IOHIDElementCookie, DeviceInput>,
 }
 
 impl HIDDevice {
     /// Safety: the caller must ensure the device is alive.
     pub unsafe fn open_device(
-        device_id: DeviceId,
+        device: IOHIDDeviceRef,
+        device_type: DeviceType,
         input_value_handler: &dyn HandleInputValue,
     ) -> Self {
-        let input_map = build_input_map(device_id.device_ref);
         IOHIDDeviceRegisterInputValueCallback(
-            device_id.device_ref,
+            device,
             input_value_handler.get_callback(),
             input_value_handler.get_pinned_pointer(),
         );
         Self {
-            device_id,
-            input_map,
+            device_type,
+            input_map: build_input_map(device),
         }
     }
 
-    pub fn device_ref(&self) -> IOHIDDeviceRef {
-        self.device_id.device_ref
+    pub fn device_type(&self) -> DeviceType {
+        self.device_type
     }
 
     pub fn handle_input_event(&self, input_event: InputEvent) {
@@ -143,12 +146,15 @@ impl HIDDevice {
             Some(device_input) => {
                 if !matches!(device_input.input_type, InputType::Other) {
                     println!(
-                        "Got input from {}: {}",
-                        device_input.name, input_event.value
+                        "New input from {:?} {}: {}",
+                        self.device_type, device_input.name, input_event.value,
                     );
                 }
             }
-            None => println!("Unknown input event: {:?}", input_event),
+            None => println!(
+                "Unknown input event from {:?}: {:?}",
+                self.device_type, input_event,
+            ),
         }
     }
 
