@@ -1,0 +1,4 @@
+BasedOnStyle: Google
+DerivePointerAlignment: false
+Language: Cpp
+PointerAlignment: Left

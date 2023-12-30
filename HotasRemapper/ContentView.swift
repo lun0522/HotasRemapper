@@ -8,20 +8,31 @@
 import SwiftUI
 
 struct ContentView: View {
-  var text: String
-
-  init(didGrantAccess: Bool) {
-    text =
-      didGrantAccess
-      ? "Welcome to HOTAS Remapper!"
-      : "You must grant input monitoring access and restart this app!"
-  }
+  @State private var connectionStatus = ObservableConnectionStatus.shared
+  let didGrantAccess: Bool
 
   var body: some View {
-    VStack { Text(text) }.padding()
+    VStack {
+      if didGrantAccess {
+        Text(
+          "Joystick connected: " + toString(connectionStatus.status.joystick))
+        Text(
+          "Throttle connected: " + toString(connectionStatus.status.throttle))
+        Text(
+          "Virtual device connected: "
+            + toString(connectionStatus.status.virtual_device))
+      } else {
+        Text("You must grant input monitoring access and restart this app!")
+      }
+    }
+    .padding()
   }
 }
 
 #Preview {
   ContentView(didGrantAccess: true)
+}
+
+private func toString(_ value: Bool) -> String {
+  value ? "Yes" : "No"
 }

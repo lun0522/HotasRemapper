@@ -8,7 +8,7 @@
 import IOKit
 import SwiftUI
 
-let listenEventSettings: String =
+private let listenEventSettings: String =
   "x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent"
 
 private class AppDelegate: NSObject, NSApplicationDelegate {
@@ -23,7 +23,9 @@ private class AppDelegate: NSObject, NSApplicationDelegate {
   func applicationDidFinishLaunching(_ notification: Notification) {
     NSApp.activate()
     if (didGrantAccess) {
-      libHandle = OpenLib()
+      libHandle = OpenLib(connectionStatusCallback)
+    } else {
+      print("Not initializing due to lack of access")
     }
   }
 
@@ -72,5 +74,31 @@ private func toString(_ type: IOHIDAccessType) -> String {
     case kIOHIDAccessTypeGranted: "Granted"
     case kIOHIDAccessTypeDenied: "Denied"
     default: "Unknown"
+  }
+}
+
+@Observable
+class ObservableConnectionStatus {
+  static let shared = ObservableConnectionStatus()
+
+  var status: ConnectionStatus
+
+  private init() {
+    self.status = ConnectionStatus(
+      joystick: false,
+      throttle: false,
+      virtual_device: false)
+  }
+
+  func updateStatus(_ newStatus: ConnectionStatus) {
+    status = newStatus
+  }
+}
+
+private func connectionStatusCallback(
+  newStatus: UnsafePointer<ConnectionStatus>?
+) {
+  if let newStatus = newStatus?.pointee {
+    ObservableConnectionStatus.shared.updateStatus(newStatus)
   }
 }

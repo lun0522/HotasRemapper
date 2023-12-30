@@ -9,16 +9,39 @@ use crate::hid_device::DeviceType;
 use crate::hid_device::HIDDevice;
 use crate::hid_device::HandleInputValue;
 use crate::hid_manager::HandleDeviceEvent;
+use crate::ConnectionStatus;
+use crate::ConnectionStatusCallback;
 
 pub(crate) struct DeviceManager {
     devices: HashMap<IOHIDDeviceRef, HIDDevice>,
+    device_types: HashMap<DeviceType, IOHIDDeviceRef>,
+    connection_status_callback: ConnectionStatusCallback,
 }
 
 impl DeviceManager {
-    pub fn new() -> Self {
+    pub fn new(connection_status_callback: ConnectionStatusCallback) -> Self {
         Self {
             devices: Default::default(),
+            device_types: Default::default(),
+            connection_status_callback,
         }
+    }
+
+    fn report_connection_status(&self) {
+        let mut connection_status = ConnectionStatus::default();
+        for device_type in self.device_types.keys() {
+            match device_type {
+                DeviceType::Joystick => connection_status.joystick = true,
+                DeviceType::Throttle => connection_status.throttle = true,
+            }
+        }
+        // Safe because the caller guarantees the callback remains a valid
+        // function pointer, and `connection_status` lives longer than the call.
+        unsafe {
+            (self.connection_status_callback)(
+                &connection_status as *const ConnectionStatus,
+            )
+        };
     }
 }
 
@@ -32,11 +55,7 @@ impl HandleDeviceEvent for DeviceManager {
         if let Some(device_type) = DeviceType::try_from(&device_property).ok() {
             // Open a new device only if we haven't found any devices of the
             // same type.
-            if !self
-                .devices
-                .iter()
-                .any(|(_, device)| device.device_type() == device_type)
-            {
+            if self.device_types.get(&device_type).is_none() {
                 println!("Found {:?} device: {}", device_type, device_property);
                 // Safe because the device is alive.
                 self.devices.insert(device_ref, unsafe {
@@ -46,6 +65,8 @@ impl HandleDeviceEvent for DeviceManager {
                         input_value_handler,
                     )
                 });
+                self.device_types.insert(device_type, device_ref);
+                self.report_connection_status();
                 return;
             }
         }
@@ -54,7 +75,12 @@ impl HandleDeviceEvent for DeviceManager {
 
     fn handle_device_removed(&mut self, device_ref: IOHIDDeviceRef) {
         if let Some(device) = self.devices.remove(&device_ref) {
-            println!("Removed {:?} device", device.device_type());
+            let device_type = device.device_type();
+            self.device_types
+                .remove(&device_type)
+                .expect("Device not found in device_types map");
+            self.report_connection_status();
+            println!("Removed {:?} device", device_type);
         }
     }
 

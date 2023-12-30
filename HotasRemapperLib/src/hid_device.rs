@@ -88,7 +88,7 @@ impl std::fmt::Display for DeviceProperty {
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub(crate) enum DeviceType {
     Joystick,
     Throttle,
@@ -133,7 +133,7 @@ impl HIDDevice {
         );
         Self {
             device_type,
-            input_map: build_input_map(device),
+            input_map: build_input_map(device, device_type),
         }
     }
 
@@ -180,6 +180,7 @@ impl HIDDevice {
 /// Safety: the caller must ensure the device is alive.
 unsafe fn build_input_map(
     device: IOHIDDeviceRef,
+    device_type: DeviceType,
 ) -> HashMap<IOHIDElementCookie, DeviceInput> {
     let mut input_map = HashMap::<IOHIDElementCookie, DeviceInput>::new();
     let mut index_tracker = HashMap::<InputType, i32>::new();
@@ -196,6 +197,6 @@ unsafe fn build_input_map(
             input_map.insert(identifier, device_input);
         }
     }
-    println!("Found inputs: {:?}", index_tracker);
+    println!("Found {:?} inputs: {:?}", device_type, index_tracker);
     input_map
 }
