@@ -10,6 +10,9 @@ pub(crate) mod utils;
 use std::ffi::c_void;
 
 use device_manager::DeviceManager;
+use swift_rs::swift;
+
+swift!(fn run_bluetooth_lib());
 
 type HIDManager = hid_manager::HIDManager<DeviceManager>;
 pub(crate) type ConnectionStatusCallback =
@@ -31,6 +34,8 @@ pub unsafe extern "C" fn OpenLib(
     connection_status_callback: ConnectionStatusCallback,
 ) -> *mut c_void {
     println!("Opening {}", project_name());
+    // Trivially safe.
+    unsafe { run_bluetooth_lib() };
     match HIDManager::new(DeviceManager::new(connection_status_callback)) {
         Ok(mut manager) => {
             let manager_ptr = &*manager.as_mut() as *const HIDManager as *mut _;

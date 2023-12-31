@@ -15,14 +15,13 @@ use core_foundation::dictionary::CFDictionary;
 use core_foundation::number::CFNumber;
 use core_foundation::runloop::kCFRunLoopDefaultMode;
 use core_foundation::runloop::CFRunLoopGetCurrent;
+use core_foundation::string::CFString;
 use io_kit_sys::hid::base::IOHIDDeviceRef;
 use io_kit_sys::hid::base::IOHIDValueCallback;
 use io_kit_sys::hid::base::IOHIDValueRef;
 use io_kit_sys::hid::keys::kIOHIDDeviceUsageKey;
 use io_kit_sys::hid::keys::kIOHIDDeviceUsagePageKey;
 use io_kit_sys::hid::keys::kIOHIDOptionsTypeNone;
-use io_kit_sys::hid::keys::kIOHIDTransportBluetoothValue;
-use io_kit_sys::hid::keys::kIOHIDTransportKey;
 use io_kit_sys::hid::manager::IOHIDManagerClose;
 use io_kit_sys::hid::manager::IOHIDManagerCreate;
 use io_kit_sys::hid::manager::IOHIDManagerOpen;
@@ -39,12 +38,6 @@ use io_kit_sys::ret::IOReturn;
 
 use crate::hid_device::HandleInputValue;
 use crate::utils::new_cf_string;
-
-// Apple actually uses "Bluetooth Low Energy" instead of "BluetoothLowEnergy"
-// defined in <IOKit/hid/IOHIDKeys.h>.
-#[allow(non_upper_case_globals)]
-const kIOHIDTransportBluetoothLowEnergyValue: *const c_char =
-    b"Bluetooth Low Energy\x00" as *const [u8; 21usize] as *const _;
 
 pub(crate) trait HandleDeviceEvent {
     fn handle_device_matched(
@@ -142,42 +135,17 @@ fn create_manager() -> IOHIDManagerRef {
 
 /// The caller must ensure `manager_ref` is still alive.
 unsafe fn set_device_matching_criteria(manager_ref: &IOHIDManagerRef) {
-    let make_string =
-        |val: *const c_char| new_cf_string(val).unwrap().as_CFType();
-    let make_number = |val: u32| CFNumber::from(val as i32).as_CFType();
-    let usage_page_criteria = (
-        make_string(kIOHIDDeviceUsagePageKey),
-        make_number(kHIDPage_GenericDesktop),
-    );
-    let hotas_devices = CFDictionary::from_CFType_pairs(&[
-        usage_page_criteria.clone(),
-        (
-            make_string(kIOHIDDeviceUsageKey),
-            make_number(kHIDUsage_GD_Joystick),
-        ),
-    ]);
-    let bluetooth_devices = CFDictionary::from_CFType_pairs(&[
-        usage_page_criteria.clone(),
-        (
-            make_string(kIOHIDTransportKey),
-            make_string(kIOHIDTransportBluetoothValue),
-        ),
-    ]);
-    let bluetooth_low_energy_devices = CFDictionary::from_CFType_pairs(&[
-        usage_page_criteria,
-        (
-            make_string(kIOHIDTransportKey),
-            make_string(kIOHIDTransportBluetoothLowEnergyValue),
-        ),
+    let new_kv_pair =
+        |key: *const c_char, value: u32| -> (CFString, CFNumber) {
+            (new_cf_string(key).unwrap(), CFNumber::from(value as i32))
+        };
+    let criteria = CFDictionary::from_CFType_pairs(&[
+        new_kv_pair(kIOHIDDeviceUsagePageKey, kHIDPage_GenericDesktop),
+        new_kv_pair(kIOHIDDeviceUsageKey, kHIDUsage_GD_Joystick),
     ]);
     IOHIDManagerSetDeviceMatchingMultiple(
         *manager_ref,
-        CFArray::from_CFTypes(&[
-            hotas_devices.as_CFType(),
-            bluetooth_devices.as_CFType(),
-            bluetooth_low_energy_devices.as_CFType(),
-        ])
-        .as_concrete_TypeRef(),
+        CFArray::from_CFTypes(&[criteria.as_CFType()]).as_concrete_TypeRef(),
     );
 }
 
