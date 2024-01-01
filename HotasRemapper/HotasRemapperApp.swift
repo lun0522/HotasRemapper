@@ -22,7 +22,7 @@ private class AppDelegate: NSObject, NSApplicationDelegate {
 
   func applicationDidFinishLaunching(_ notification: Notification) {
     NSApp.activate()
-    if (didGrantAccess) {
+    if didGrantAccess {
       libHandle = OpenLib(connectionStatusCallback)
     } else {
       print("Not initializing due to lack of access")
@@ -32,7 +32,7 @@ private class AppDelegate: NSObject, NSApplicationDelegate {
   func applicationShouldTerminate(_ sender: NSApplication)
     -> NSApplication.TerminateReply
   {
-    if (libHandle != nil) {
+    if libHandle != nil {
       CloseLib(libHandle)
     }
     return NSApplication.TerminateReply.terminateNow
@@ -52,7 +52,7 @@ struct HotasRemapperApp: App {
 
 private func checkHIDAccess() -> Bool {
   let accessType = IOHIDCheckAccess(kIOHIDRequestTypeListenEvent)
-  print("Current access type:", toString(accessType))
+  print("Input monitoring access type:", toString(accessType))
   switch accessType {
     case kIOHIDAccessTypeGranted:
       return true;
