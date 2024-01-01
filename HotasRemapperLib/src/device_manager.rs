@@ -1,20 +1,22 @@
 use std::collections::HashMap;
+use std::convert::From;
 use std::convert::TryFrom;
 
 use io_kit_sys::hid::base::IOHIDDeviceRef;
 use io_kit_sys::hid::base::IOHIDValueRef;
 
 use crate::hid_device::DeviceProperty;
-use crate::hid_device::DeviceType;
 use crate::hid_device::HIDDevice;
 use crate::hid_device::HandleInputValue;
 use crate::hid_manager::HandleDeviceEvent;
-use crate::ConnectionStatus;
 use crate::ConnectionStatusCallback;
+use crate::DeviceType;
+
+type HIDDeviceType = crate::hid_device::DeviceType;
 
 pub(crate) struct DeviceManager {
     devices: HashMap<IOHIDDeviceRef, HIDDevice>,
-    device_types: HashMap<DeviceType, IOHIDDeviceRef>,
+    device_types: HashMap<HIDDeviceType, IOHIDDeviceRef>,
     connection_status_callback: ConnectionStatusCallback,
 }
 
@@ -27,20 +29,15 @@ impl DeviceManager {
         }
     }
 
-    fn report_connection_status(&self) {
-        let mut connection_status = ConnectionStatus::default();
-        for device_type in self.device_types.keys() {
-            match device_type {
-                DeviceType::Joystick => connection_status.joystick = true,
-                DeviceType::Throttle => connection_status.throttle = true,
-            }
-        }
+    fn report_connection_status(
+        &self,
+        device_type: HIDDeviceType,
+        is_connected: bool,
+    ) {
         // Safe because the caller guarantees the callback remains a valid
-        // function pointer, and `connection_status` lives longer than the call.
+        // function pointer.
         unsafe {
-            (self.connection_status_callback)(
-                &connection_status as *const ConnectionStatus,
-            )
+            (self.connection_status_callback)(device_type.into(), is_connected)
         };
     }
 }
@@ -52,7 +49,9 @@ impl HandleDeviceEvent for DeviceManager {
         input_value_handler: &dyn HandleInputValue,
     ) {
         let device_property = DeviceProperty::from_device(device_ref);
-        if let Some(device_type) = DeviceType::try_from(&device_property).ok() {
+        if let Some(device_type) =
+            HIDDeviceType::try_from(&device_property).ok()
+        {
             // Open a new device only if we haven't found any devices of the
             // same type.
             if self.device_types.get(&device_type).is_none() {
@@ -66,7 +65,10 @@ impl HandleDeviceEvent for DeviceManager {
                     )
                 });
                 self.device_types.insert(device_type, device_ref);
-                self.report_connection_status();
+                self.report_connection_status(
+                    device_type,
+                    /* is_connected= */ true,
+                );
                 return;
             }
         }
@@ -79,7 +81,10 @@ impl HandleDeviceEvent for DeviceManager {
             self.device_types
                 .remove(&device_type)
                 .expect("Device not found in device_types map");
-            self.report_connection_status();
+            self.report_connection_status(
+                device_type,
+                /* is_connected= */ false,
+            );
             println!("Removed {:?} device", device_type);
         }
     }
@@ -90,6 +95,15 @@ impl HandleDeviceEvent for DeviceManager {
                 device.handle_input_event(input_event);
                 return;
             }
+        }
+    }
+}
+
+impl From<HIDDeviceType> for DeviceType {
+    fn from(value: HIDDeviceType) -> Self {
+        match value {
+            HIDDeviceType::Joystick => DeviceType::Joystick,
+            HIDDeviceType::Throttle => DeviceType::Throttle,
         }
     }
 }

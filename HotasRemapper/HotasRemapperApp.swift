@@ -77,28 +77,19 @@ private func toString(_ type: IOHIDAccessType) -> String {
   }
 }
 
-@Observable
-class ObservableConnectionStatus {
-  static let shared = ObservableConnectionStatus()
-
-  var status: ConnectionStatus
-
-  private init() {
-    self.status = ConnectionStatus(
-      joystick: false,
-      throttle: false,
-      virtual_device: false)
-  }
-
-  func updateStatus(_ newStatus: ConnectionStatus) {
-    status = newStatus
-  }
+extension Notification.Name {
+  static let connectionStatusUpdate =
+    Notification.Name("connectionStatusUpdate")
 }
 
 private func connectionStatusCallback(
-  newStatus: UnsafePointer<ConnectionStatus>?
+  deviceType: DeviceType,
+  isConnected: Bool
 ) {
-  if let newStatus = newStatus?.pointee {
-    ObservableConnectionStatus.shared.updateStatus(newStatus)
+  // Values must be published from the main thread.
+  DispatchQueue.main.async {
+    NotificationCenter.default.post(
+      name: .connectionStatusUpdate,
+      object: (deviceType, isConnected))
   }
 }

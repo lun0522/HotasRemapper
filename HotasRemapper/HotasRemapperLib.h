@@ -11,14 +11,14 @@
 #include <stdbool.h>
 #include <stdio.h>
 
-struct ConnectionStatus {
-  bool joystick;
-  bool throttle;
-  bool virtual_device;
+enum DeviceType {
+  kJoystick = 0,
+  kThrottle = 1,
+  kVirtualDevice = 2,
 };
 
-void* OpenLib(
-    void (*connection_status_callback)(const struct ConnectionStatus*));
+void* OpenLib(void (*connection_status_callback)(enum DeviceType deviceType,
+                                                 bool isConnected));
 void CloseLib(void* handle);
 
 #endif /* HotasRemapperLib_h */

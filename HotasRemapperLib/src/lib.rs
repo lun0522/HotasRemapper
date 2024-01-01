@@ -11,21 +11,35 @@ use std::ffi::c_void;
 
 use device_manager::DeviceManager;
 use swift_rs::swift;
+use swift_rs::SwiftArg;
 
-swift!(fn open_bluetooth_lib());
-swift!(fn close_bluetooth_lib());
+#[repr(C)]
+pub enum DeviceType {
+    Joystick = 0,
+    Throttle = 1,
+    VirtualDevice = 2,
+}
 
 type HIDManager = hid_manager::HIDManager<DeviceManager>;
 pub(crate) type ConnectionStatusCallback =
-    unsafe extern "C" fn(*const ConnectionStatus);
+    unsafe extern "C" fn(DeviceType, bool);
+pub(crate) type VirtualDeviceConnectionStatusCallback =
+    unsafe extern "C" fn(bool);
 
-#[repr(C)]
-#[derive(Default)]
-pub struct ConnectionStatus {
-    joystick: bool,
-    throttle: bool,
-    virtual_device: bool,
+pub struct BluetoothLibCallback(pub VirtualDeviceConnectionStatusCallback);
+
+impl<'a> SwiftArg<'a> for BluetoothLibCallback {
+    type ArgType = VirtualDeviceConnectionStatusCallback;
+
+    unsafe fn as_arg(&'a self) -> Self::ArgType {
+        self.0
+    }
 }
+
+swift!(fn OpenBluetoothLib(callback: BluetoothLibCallback));
+swift!(fn CloseBluetoothLib());
+
+static mut CONNECTION_STATUS_CALLBACK: Option<ConnectionStatusCallback> = None;
 
 /// The caller must call `CloseLib()` at the end with the pointer returned by
 /// `OpenLib()`, and `connection_status_callback()` must remain a valid function
@@ -35,8 +49,13 @@ pub unsafe extern "C" fn OpenLib(
     connection_status_callback: ConnectionStatusCallback,
 ) -> *mut c_void {
     println!("Opening {}", project_name());
-    // Trivially safe.
-    unsafe { open_bluetooth_lib() };
+    CONNECTION_STATUS_CALLBACK = Some(connection_status_callback);
+    // Safe because we are just passing in a static function.
+    unsafe {
+        OpenBluetoothLib(BluetoothLibCallback(
+            UpdateVirtualDeviceConnectionStatus,
+        ))
+    };
     match HIDManager::new(DeviceManager::new(connection_status_callback)) {
         Ok(mut manager) => {
             let manager_ptr = &*manager.as_mut() as *const HIDManager as *mut _;
@@ -57,9 +76,18 @@ pub unsafe extern "C" fn OpenLib(
 pub unsafe extern "C" fn CloseLib(manager_ptr: *mut c_void) {
     println!("Closing {}", project_name());
     // Trivially safe.
-    unsafe { close_bluetooth_lib() };
+    unsafe { CloseBluetoothLib() };
     if !manager_ptr.is_null() {
         std::ptr::drop_in_place(manager_ptr as *mut HIDManager);
+    }
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn UpdateVirtualDeviceConnectionStatus(
+    is_connected: bool,
+) {
+    if let Some(callback) = CONNECTION_STATUS_CALLBACK {
+        callback(DeviceType::VirtualDevice, is_connected);
     }
 }
 

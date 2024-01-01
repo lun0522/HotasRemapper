@@ -1,11 +1,13 @@
 import IOBluetooth
 
-@_cdecl("open_bluetooth_lib")
-public func openBluetoothLib() {
-  BluetoothManager.shared.start()
+public typealias ConnectionStatusCallback = @convention(c) (Bool) -> Void
+
+@_cdecl("OpenBluetoothLib")
+public func openBluetoothLib(callback: ConnectionStatusCallback) {
+  BluetoothManager.shared.start(withCallback: callback)
 }
 
-@_cdecl("close_bluetooth_lib")
+@_cdecl("CloseBluetoothLib")
 public func closeBluetoothLib() {
   BluetoothManager.shared.stop()
 }
@@ -13,13 +15,19 @@ public func closeBluetoothLib() {
 class BluetoothManager: NSObject, IOBluetoothRFCOMMChannelDelegate {
   static let shared = BluetoothManager()
 
-  var connectedChannel: IOBluetoothRFCOMMChannel?
   var isRunning = false
-  var isVirtualDeviceFound = false
+  var isVirtualDeviceConnected = false {
+    didSet {
+      connectionStatusCallback?(isVirtualDeviceConnected)
+    }
+  }
+  var connectedChannel: IOBluetoothRFCOMMChannel?
+  var connectionStatusCallback: ConnectionStatusCallback?
 
-  func start() {
+  func start(withCallback callback: ConnectionStatusCallback) {
     print("Starting Bluetooth manager")
     isRunning = true
+    connectionStatusCallback = callback
     IOBluetoothDevice.register(
       forConnectNotifications: self,
       selector: #selector(didConnect(notification:fromDevice:)))
@@ -51,10 +59,10 @@ class BluetoothManager: NSObject, IOBluetoothRFCOMMChannelDelegate {
 
     print("Found virtual device via Bluetooth:", deviceInfo)
     // We may get notified more than once.
-    if isVirtualDeviceFound {
+    if isVirtualDeviceConnected {
       return
     }
-    isVirtualDeviceFound = true
+    isVirtualDeviceConnected = true
     fromDevice.register(
       forDisconnectNotification: self,
       selector: #selector(didDisconnect(notification:fromDevice:)))
@@ -71,7 +79,7 @@ class BluetoothManager: NSObject, IOBluetoothRFCOMMChannelDelegate {
     fromDevice: IOBluetoothDevice
   ) {
     print("Virtual device disconnected")
-    isVirtualDeviceFound = false
+    isVirtualDeviceConnected = false
     if !isRunning {
       notification.unregister()
     }
