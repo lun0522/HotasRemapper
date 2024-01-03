@@ -1,9 +1,5 @@
-use std::cell::RefCell;
 use std::convert::From;
 use std::ffi::c_char;
-use std::ffi::c_void;
-use std::marker::PhantomPinned;
-use std::pin::Pin;
 
 use anyhow::bail;
 use anyhow::Result;
@@ -16,9 +12,7 @@ use core_foundation::number::CFNumber;
 use core_foundation::runloop::kCFRunLoopDefaultMode;
 use core_foundation::runloop::CFRunLoopGetCurrent;
 use core_foundation::string::CFString;
-use io_kit_sys::hid::base::IOHIDDeviceRef;
-use io_kit_sys::hid::base::IOHIDValueCallback;
-use io_kit_sys::hid::base::IOHIDValueRef;
+use io_kit_sys::hid::base::IOHIDDeviceCallback;
 use io_kit_sys::hid::keys::kIOHIDDeviceUsageKey;
 use io_kit_sys::hid::keys::kIOHIDDeviceUsagePageKey;
 use io_kit_sys::hid::keys::kIOHIDOptionsTypeNone;
@@ -34,32 +28,24 @@ use io_kit_sys::hid::manager::IOHIDManagerUnscheduleFromRunLoop;
 use io_kit_sys::hid::usage_tables::kHIDPage_GenericDesktop;
 use io_kit_sys::hid::usage_tables::kHIDUsage_GD_Joystick;
 use io_kit_sys::ret::kIOReturnSuccess;
-use io_kit_sys::ret::IOReturn;
 
-use crate::hid_device::HandleInputValue;
 use crate::utils::new_cf_string;
 
+/// A trait to provide what we need for calling
+/// `IOHIDManagerRegisterDeviceMatchingCallback()` and
+/// `IOHIDManagerRegisterDeviceRemovalCallback()`.
 pub(crate) trait HandleDeviceEvent {
-    fn handle_device_matched(
-        &mut self,
-        device: IOHIDDeviceRef,
-        input_value_handler: &dyn HandleInputValue,
-    );
-    fn handle_device_removed(&mut self, device: IOHIDDeviceRef);
-    fn handle_input_value(&mut self, value: IOHIDValueRef);
+    fn device_matched_callback() -> IOHIDDeviceCallback;
+    fn device_removed_callback() -> IOHIDDeviceCallback;
 }
 
 /// A struct wrapping `IOHIDManagerRef` from IOKit.
-pub(crate) struct HIDManager<T: HandleDeviceEvent> {
+pub(crate) struct HIDManager {
     manager_ref: IOHIDManagerRef,
-    device_event_handler: RefCell<T>,
-    // We want to make sure the `HIDManager` doesn't get moved, so the user can
-    // rely on an everlasting pointer to it.
-    _pinned_marker: PhantomPinned,
 }
 
-impl<T: HandleDeviceEvent> HIDManager<T> {
-    pub fn new(device_event_handler: T) -> Result<Pin<Box<Self>>> {
+impl HIDManager {
+    pub fn new() -> Result<Self> {
         println!("Creating HID manager");
         let manager_ref = create_manager();
         // Safe because the manager will be alive until we call `CFRelease()`.
@@ -71,43 +57,20 @@ impl<T: HandleDeviceEvent> HIDManager<T> {
             }
             start_manager(&manager_ref);
         }
-        let mut manager = Box::pin(Self {
-            manager_ref,
-            device_event_handler: RefCell::new(device_event_handler),
-            _pinned_marker: PhantomPinned,
-        });
-        // Safe because we are passing in a pointer to a pinned `HIDManager`.
-        unsafe {
-            set_device_callbacks::<T>(
-                &*manager.as_mut() as *const HIDManager<T> as *mut _,
-            );
-        }
-        Ok(manager)
+        Ok(Self { manager_ref })
     }
 
-    #[inline]
-    fn handle_device_matched(&self, device: IOHIDDeviceRef) {
-        self.device_event_handler
-            .borrow_mut()
-            .handle_device_matched(device, self);
-    }
-
-    #[inline]
-    fn handle_device_removed(&self, device: IOHIDDeviceRef) {
-        self.device_event_handler
-            .borrow_mut()
-            .handle_device_removed(device);
-    }
-
-    #[inline]
-    fn handle_input_value(&self, value: IOHIDValueRef) {
-        self.device_event_handler
-            .borrow_mut()
-            .handle_input_value(value);
+    /// Safety: the caller must ensure the pinned handler lives longer than
+    /// `HIDManager`.
+    pub unsafe fn set_device_callbacks<T: HandleDeviceEvent>(
+        &self,
+        pinned_handler_ptr: *mut T,
+    ) {
+        set_device_callbacks::<T>(&self.manager_ref, pinned_handler_ptr);
     }
 }
 
-impl<T: HandleDeviceEvent> Drop for HIDManager<T> {
+impl Drop for HIDManager {
     fn drop(&mut self) {
         println!("Dropping HID manager");
         // Safe because we haven't called `CFRelease()` until this point.
@@ -115,16 +78,6 @@ impl<T: HandleDeviceEvent> Drop for HIDManager<T> {
             stop_manager(&self.manager_ref);
             close_and_release_manager(&self.manager_ref);
         }
-    }
-}
-
-impl<T: HandleDeviceEvent> HandleInputValue for HIDManager<T> {
-    fn get_pinned_pointer(&self) -> *mut c_void {
-        &*self as *const Self as *mut _
-    }
-
-    fn get_callback(&self) -> IOHIDValueCallback {
-        handle_input_value::<T>
     }
 }
 
@@ -158,20 +111,20 @@ unsafe fn open_manager(manager_ref: &IOHIDManagerRef) -> Result<()> {
     Ok(())
 }
 
-/// The caller must ensure `hid_manager` is a valid pointer, and the
-/// `HIDManager` itself is pinned in memory.
+/// The caller must ensure `manager_ref` is still alive.
 unsafe fn set_device_callbacks<T: HandleDeviceEvent>(
-    hid_manager: *mut HIDManager<T>,
+    manager_ref: &IOHIDManagerRef,
+    pinned_handler_ptr: *mut T,
 ) {
     IOHIDManagerRegisterDeviceMatchingCallback(
-        (*hid_manager).manager_ref,
-        handle_device_matched::<T>,
-        hid_manager as *mut _,
+        *manager_ref,
+        T::device_matched_callback(),
+        pinned_handler_ptr as *mut _,
     );
     IOHIDManagerRegisterDeviceRemovalCallback(
-        (*hid_manager).manager_ref,
-        handle_device_removed::<T>,
-        hid_manager as *mut _,
+        *manager_ref,
+        T::device_removed_callback(),
+        pinned_handler_ptr as *mut _,
     );
 }
 
@@ -197,43 +150,4 @@ unsafe fn stop_manager(manager_ref: &IOHIDManagerRef) {
 unsafe fn close_and_release_manager(manager_ref: &IOHIDManagerRef) {
     IOHIDManagerClose(*manager_ref, kIOHIDOptionsTypeNone);
     CFRelease(*manager_ref as *mut _);
-}
-
-extern "C" fn handle_device_matched<T: HandleDeviceEvent>(
-    context: *mut c_void,
-    _result: IOReturn,
-    _sender: *mut c_void,
-    device: IOHIDDeviceRef,
-) {
-    // Safe because we stored a pointer to a pinned `HIDManager`.
-    if let Some(manager) = unsafe { (context as *const HIDManager<T>).as_ref() }
-    {
-        manager.handle_device_matched(device);
-    }
-}
-
-extern "C" fn handle_device_removed<T: HandleDeviceEvent>(
-    context: *mut c_void,
-    _result: IOReturn,
-    _sender: *mut c_void,
-    device: IOHIDDeviceRef,
-) {
-    // Safe because we stored a pointer to a pinned `HIDManager`.
-    if let Some(manager) = unsafe { (context as *const HIDManager<T>).as_ref() }
-    {
-        manager.handle_device_removed(device);
-    }
-}
-
-extern "C" fn handle_input_value<T: HandleDeviceEvent>(
-    context: *mut c_void,
-    _result: IOReturn,
-    _sender: *mut c_void,
-    value: IOHIDValueRef,
-) {
-    // Safe because we stored a pointer to a pinned `HIDManager`.
-    if let Some(manager) = unsafe { (context as *const HIDManager<T>).as_ref() }
-    {
-        manager.handle_input_value(value);
-    }
 }

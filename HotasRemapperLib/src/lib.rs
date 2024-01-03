@@ -20,7 +20,6 @@ pub enum DeviceType {
     VirtualDevice = 2,
 }
 
-type HIDManager = hid_manager::HIDManager<DeviceManager>;
 pub(crate) type ConnectionStatusCallback =
     unsafe extern "C" fn(DeviceType, bool);
 pub(crate) type VirtualDeviceConnectionStatusCallback =
@@ -56,16 +55,17 @@ pub unsafe extern "C" fn OpenLib(
             UpdateVirtualDeviceConnectionStatus,
         ))
     };
-    match HIDManager::new(DeviceManager::new(connection_status_callback)) {
+    match DeviceManager::new(connection_status_callback) {
         Ok(mut manager) => {
-            let manager_ptr = &*manager.as_mut() as *const HIDManager as *mut _;
+            let manager_ptr =
+                &*manager.as_mut() as *const DeviceManager as *mut _;
             // We rely on the caller to call `CloseLib()` at the end to release
-            // the pinned `HIDManager`.
+            // the pinned `DeviceManager`.
             std::mem::forget(manager);
             manager_ptr
         }
         Err(e) => {
-            println!("Failed to create HID manager: {:?}", e);
+            println!("Failed to create device manager: {:?}", e);
             std::ptr::null_mut()
         }
     }
@@ -75,10 +75,11 @@ pub unsafe extern "C" fn OpenLib(
 #[no_mangle]
 pub unsafe extern "C" fn CloseLib(manager_ptr: *mut c_void) {
     println!("Closing {}", project_name());
+    CONNECTION_STATUS_CALLBACK = None;
     // Trivially safe.
     unsafe { CloseBluetoothLib() };
     if !manager_ptr.is_null() {
-        std::ptr::drop_in_place(manager_ptr as *mut HIDManager);
+        std::ptr::drop_in_place(manager_ptr as *mut DeviceManager);
     }
 }
 

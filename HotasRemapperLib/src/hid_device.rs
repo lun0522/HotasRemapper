@@ -32,9 +32,8 @@ use crate::utils::new_string;
 
 /// A trait to provide what we need for calling
 /// `IOHIDDeviceRegisterInputValueCallback()`.
-pub(crate) trait HandleInputValue {
-    fn get_pinned_pointer(&self) -> *mut c_void;
-    fn get_callback(&self) -> IOHIDValueCallback;
+pub(crate) trait HandleInputEvent {
+    fn input_received_callback() -> IOHIDValueCallback;
 }
 
 pub(crate) struct DeviceProperty {
@@ -120,16 +119,17 @@ pub(crate) struct HIDDevice {
 }
 
 impl HIDDevice {
-    /// Safety: the caller must ensure the device is alive.
-    pub unsafe fn open_device(
+    /// Safety: the caller must ensure the device is alive, and the pinned
+    /// handler lives longer than the device.
+    pub unsafe fn open_device<T: HandleInputEvent>(
         device: IOHIDDeviceRef,
         device_type: DeviceType,
-        input_value_handler: &dyn HandleInputValue,
+        pinned_handler_ptr: *mut T,
     ) -> Self {
         IOHIDDeviceRegisterInputValueCallback(
             device,
-            input_value_handler.get_callback(),
-            input_value_handler.get_pinned_pointer(),
+            T::input_received_callback(),
+            pinned_handler_ptr as *mut _,
         );
         Self {
             device_type,
