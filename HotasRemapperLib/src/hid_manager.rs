@@ -60,8 +60,7 @@ impl HIDManager {
         Ok(Self { manager_ref })
     }
 
-    /// Safety: the caller must ensure the pinned handler lives longer than
-    /// `HIDManager`.
+    /// Safety: the caller must ensure the pinned handler outlives `HIDManager`.
     pub unsafe fn set_device_callbacks<T: HandleDeviceEvent>(
         &self,
         pinned_handler_ptr: *mut T,

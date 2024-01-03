@@ -120,7 +120,7 @@ pub(crate) struct HIDDevice {
 
 impl HIDDevice {
     /// Safety: the caller must ensure the device is alive, and the pinned
-    /// handler lives longer than the device.
+    /// handler outlives the device.
     pub unsafe fn open_device<T: HandleInputEvent>(
         device: IOHIDDeviceRef,
         device_type: DeviceType,
@@ -141,7 +141,10 @@ impl HIDDevice {
         self.device_type
     }
 
-    pub fn handle_input_event(&self, input_event: InputEvent) {
+    pub fn handle_input_event(
+        &self,
+        input_event: InputEvent,
+    ) -> Option<(&DeviceInput, i32)> {
         match self.input_map.get(&input_event.input_id) {
             Some(device_input) => {
                 if !matches!(device_input.input_type, InputType::Other) {
@@ -149,6 +152,7 @@ impl HIDDevice {
                         "New input from {:?} {}: {}",
                         self.device_type, device_input.name, input_event.value,
                     );
+                    return Some((device_input, input_event.value));
                 }
             }
             None => println!(
@@ -156,6 +160,7 @@ impl HIDDevice {
                 self.device_type, input_event,
             ),
         }
+        None
     }
 
     pub fn read_input_event(value: IOHIDValueRef) -> Option<InputEvent> {

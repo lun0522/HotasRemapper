@@ -17,6 +17,7 @@ use crate::hid_device::HIDDevice;
 use crate::hid_device::HandleInputEvent;
 use crate::hid_manager::HIDManager;
 use crate::hid_manager::HandleDeviceEvent;
+use crate::virtual_device::VirtualDevice;
 use crate::ConnectionStatusCallback;
 use crate::DeviceType;
 
@@ -25,6 +26,7 @@ type HIDDeviceType = crate::hid_device::DeviceType;
 pub(crate) struct DeviceManager {
     hid_manager: HIDManager,
     hid_devices: HashMap<IOHIDDeviceRef, HIDDevice>,
+    virtual_deivce: VirtualDevice,
     connection_status_callback: ConnectionStatusCallback,
     // We want to make sure the `DeviceManager` doesn't get moved, so the user
     // can rely on an everlasting pointer to it.
@@ -38,11 +40,12 @@ impl DeviceManager {
         let mut manager = Box::pin(Self {
             hid_manager: HIDManager::new()?,
             hid_devices: Default::default(),
+            virtual_deivce: VirtualDevice::new(connection_status_callback),
             connection_status_callback,
             _pinned_marker: PhantomPinned,
         });
         // Safe because we won't move `DeviceManager` out of the pinned object,
-        // and it lives longer than its member `HIDManager`.
+        // and it outlives its member `HIDManager`.
         unsafe {
             let pinned_manager_ptr =
                 manager.as_mut().get_unchecked_mut() as *mut Self as *mut _;
@@ -80,8 +83,7 @@ impl DeviceManager {
             {
                 println!("Found {:?} device: {}", device_type, device_property);
                 let pinned_manager_ptr = self as *mut DeviceManager;
-                // Safe because the device is alive, and `self` lives longer
-                // than it.
+                // Safe because the device is alive, and `self` outlives it.
                 self.hid_devices.insert(device_ref, unsafe {
                     HIDDevice::open_device(
                         device_ref,
@@ -114,7 +116,28 @@ impl DeviceManager {
         if let Some(input_event) = HIDDevice::read_input_event(value) {
             if let Some(device) = self.hid_devices.get(&input_event.device_ref)
             {
-                device.handle_input_event(input_event);
+                // TODO: this is only for POC.
+                if let Some((device_input, input_value)) =
+                    device.handle_input_event(input_event)
+                {
+                    match device_input.name.as_str() {
+                        "Button25" => {
+                            // "A"
+                            self.virtual_deivce.send_output_with_new_key_event(
+                                /* key_code= */ 0x04,
+                                /* is_pressed= */ input_value != 0,
+                            )
+                        }
+                        "Button20" => {
+                            // "B"
+                            self.virtual_deivce.send_output_with_new_key_event(
+                                /* key_code= */ 0x05,
+                                /* is_pressed= */ input_value != 0,
+                            )
+                        }
+                        _ => (),
+                    }
+                }
                 return;
             }
         }

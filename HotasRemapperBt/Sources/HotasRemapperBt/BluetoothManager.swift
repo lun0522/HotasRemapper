@@ -7,6 +7,11 @@ public func openBluetoothLib(callback: ConnectionStatusCallback) {
   BluetoothManager.shared.start(withCallback: callback)
 }
 
+@_cdecl("SendDataViaBluetooth")
+public func sendDataViaBluetooth(buffer: UnsafePointer<CChar>, length: Int32) {
+  BluetoothManager.shared.send(buffer: buffer, length: length)
+}
+
 @_cdecl("CloseBluetoothLib")
 public func closeBluetoothLib() {
   BluetoothManager.shared.stop()
@@ -31,6 +36,16 @@ class BluetoothManager: NSObject, IOBluetoothRFCOMMChannelDelegate {
     IOBluetoothDevice.register(
       forConnectNotifications: self,
       selector: #selector(didConnect(notification:fromDevice:)))
+  }
+
+  func send(buffer: UnsafePointer<CChar>, length: Int32) {
+    if let channel = connectedChannel {
+      let ret = channel.writeSync(
+        UnsafeMutableRawPointer(mutating: buffer), length: UInt16(length))
+      if ret != kIOReturnSuccess {
+        print("Failed to write to RFCOMM channel:", ret)
+      }
+    }
   }
 
   func stop() {
