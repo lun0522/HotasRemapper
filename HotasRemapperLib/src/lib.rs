@@ -52,24 +52,24 @@ pub unsafe extern "C" fn OpenLib(
 /// The caller must pass in the pointer returned by `OpenLib()`, and
 /// `file_path_ptr` must point to a null-terminated UTF-8 string.
 #[no_mangle]
-pub unsafe extern "C" fn LoadInputMapping(
+pub unsafe extern "C" fn LoadInputRemapping(
     manager_ptr: *mut c_void,
     file_path_ptr: *const c_char,
 ) {
     let file_path = match utils::new_string_from_ptr(file_path_ptr) {
         Ok(path) => path,
         Err(e) => {
-            println!("Invalid input mapping file path: {}", e);
+            println!("Invalid input remapping file path: {}", e);
             return;
         }
     };
     match (manager_ptr as *mut DeviceManager).as_mut() {
         Some(manager) => {
-            println!("Loading input mapping from {}", file_path);
-            manager.load_input_mapping_from_file(&file_path.as_str());
+            println!("Loading input remapping from {}", file_path);
+            manager.load_input_remapping_from_file(&file_path.as_str());
         }
         None => println!(
-            "Failed to load input mapping because manager_ptr is null!"
+            "Failed to load input remapping because manager_ptr is null!"
         ),
     }
 }

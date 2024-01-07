@@ -13,24 +13,24 @@ struct ContentView: View {
   @State private var isThrottleConnected = false
   @State private var isVirtualDeviceConnected = false
   let didGrantAccess: Bool
-  let loadInputMapping: (String) -> Void
+  let loadInputRemapping: (String) -> Void
 
   var body: some View {
     VStack {
       if didGrantAccess {
-        Button("Load input mapping") {
+        Button("Load input remapping") {
           isImportingFile = true
         }
         .fileImporter(
           isPresented: $isImportingFile,
-          allowedContentTypes: [.json],
+          allowedContentTypes: [.item],
           onCompletion: { result in
             switch result {
               case .success(let file):
-                loadInputMapping(file.path())
+                loadInputRemapping(file.path())
               case .failure(let error):
                 print(
-                  "Failed to select input mapping file",
+                  "Failed to select input remapping file",
                   error.localizedDescription)
             }
           })
@@ -64,7 +64,7 @@ struct ContentView: View {
 }
 
 #Preview {
-  ContentView(didGrantAccess: true, loadInputMapping: { _ in })
+  ContentView(didGrantAccess: true, loadInputRemapping: { _ in })
 }
 
 private func toString(_ value: Bool) -> String {

@@ -11,7 +11,6 @@ use core_foundation::dictionary::CFDictionary;
 use core_foundation::number::CFNumber;
 use core_foundation::runloop::kCFRunLoopDefaultMode;
 use core_foundation::runloop::CFRunLoopGetCurrent;
-use core_foundation::string::CFString;
 use io_kit_sys::hid::base::IOHIDDeviceCallback;
 use io_kit_sys::hid::keys::kIOHIDDeviceUsageKey;
 use io_kit_sys::hid::keys::kIOHIDDeviceUsagePageKey;

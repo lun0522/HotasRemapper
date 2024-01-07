@@ -1,0 +1,52 @@
+syntax = "proto3";
+
+// A button is remapped to one key code. Long pressing the button would result
+// in keeping sending KEY_DOWN events with the same key code, until the button
+// is released with a KEY_UP event sent at the end.
+message ButtonInput {
+  int32 key_code = 1;
+}
+
+// A toggle switch is remapped to two key codes, one for SWITCH_ON and one for
+// SWITCH_OFF. One KEY_DOWN and one KEY_UP event will be fired at the moment of
+// toggling.
+message ToggleSwitchInput {
+  int32 on_key_code = 1;
+  int32 off_key_code = 2;
+}
+
+// An N-way (where N is 4 or 8) hat switch is remapped to N key codes. It is
+// similar to having N buttons, but note that a KEY_UP event will be fired
+// whenever the hat is moved to another position.
+message HatSwitchInput {
+  repeated int32 key_codes = 1;
+}
+
+// An "axis" is remapped to N keys. This requires dividing the value range of
+// the axis into N parts, and the game must support it. This at least works for
+// throttle control.
+message AxisInput {
+  repeated int32 key_codes = 1;
+}
+
+message Input {
+  oneof input {
+    ButtonInput button_input = 1;
+    ToggleSwitchInput toggle_switch_input = 2;
+    HatSwitchInput hat_switch_input = 3;
+    AxisInput axis_input = 4;
+  }
+}
+
+// For example, this could mean all buttons on the throttle, where some of them
+// will be remapped to ButtonInput, and some remapped to ToggleSwitchInput.
+// The key of the map will be the button index in this example.
+message InputCollection {
+  map<int32, Input> inputs = 1;
+}
+
+// The key of the map specifies the input type, e.g. "button".
+message InputRemapping {
+  map<string, InputCollection> joystick_inputs = 1;
+  map<string, InputCollection> throttle_inputs = 2;
+}

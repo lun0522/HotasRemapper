@@ -13,6 +13,7 @@ use io_kit_sys::hid::base::IOHIDValueRef;
 use io_kit_sys::ret::IOReturn;
 
 use crate::hid_device::DeviceProperty;
+use crate::hid_device::DeviceType as HIDDeviceType;
 use crate::hid_device::HIDDevice;
 use crate::hid_device::HandleInputEvent;
 use crate::hid_manager::HIDManager;
@@ -21,8 +22,6 @@ use crate::input_remapper::InputRemapper;
 use crate::virtual_device::VirtualDevice;
 use crate::ConnectionStatusCallback;
 use crate::DeviceType;
-
-type HIDDeviceType = crate::hid_device::DeviceType;
 
 pub(crate) struct DeviceManager {
     hid_manager: HIDManager,
@@ -60,9 +59,10 @@ impl DeviceManager {
         Ok(manager)
     }
 
-    pub fn load_input_mapping_from_file(&mut self, file_path: &str) {
-        if let Err(e) = self.input_remapper.load_mapping_from_file(file_path) {
-            println!("Failed to load input mapping: {:?}", e);
+    pub fn load_input_remapping_from_file(&mut self, file_path: &str) {
+        if let Err(e) = self.input_remapper.load_remapping_from_file(file_path)
+        {
+            println!("Failed to load input remapping: {:?}", e);
         }
     }
 

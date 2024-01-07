@@ -47,10 +47,10 @@ struct HotasRemapperApp: App {
     WindowGroup {
       ContentView(
         didGrantAccess: appDelegate.didGrantAccess,
-        loadInputMapping: { filePath in
+        loadInputRemapping: { filePath in
           if appDelegate.libHandle != nil {
             filePath.withCString({ filePathPtr in
-              LoadInputMapping(appDelegate.libHandle, filePathPtr)
+              LoadInputRemapping(appDelegate.libHandle, filePathPtr)
             })
           }
         })
