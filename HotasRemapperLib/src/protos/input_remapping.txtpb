@@ -1,0 +1,47 @@
+throttle_inputs {
+    key: "button"
+    value {
+        inputs {
+            key: 25
+            value {
+                button_input {
+                    key_code: 1
+                }
+            }
+        }
+        inputs {
+            key: 20
+            value {
+                button_input {
+                    key_code: 2
+                }
+            }
+        }
+    }
+}
+throttle_inputs {
+    key: "z_axis"
+    value {
+        inputs {
+            key: 0
+            value {
+                axis_input {
+                    min_value: 0
+                    max_value: 16383
+                    reverse_axis: true
+                    key_codes: 68
+                    key_codes: 58
+                    key_codes: 59
+                    key_codes: 60
+                    key_codes: 61
+                    key_codes: 62
+                    key_codes: 63
+                    key_codes: 64
+                    key_codes: 65
+                    key_codes: 66
+                    key_codes: 67
+                }
+            }
+        }
+    }
+}

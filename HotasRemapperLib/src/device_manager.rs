@@ -129,13 +129,15 @@ impl DeviceManager {
                 if let Some(input_event) =
                     device.interpret_raw_input_event(raw_input_event)
                 {
-                    if let Some(key_event) =
+                    if let Some(key_events) =
                         self.input_remapper.remap_input_event(&input_event)
                     {
-                        self.virtual_deivce.send_output_with_new_key_event(
-                            key_event.key_code,
-                            key_event.is_pressed,
-                        )
+                        for key_event in key_events {
+                            self.virtual_deivce.send_output_with_new_key_event(
+                                key_event.key_code,
+                                key_event.is_pressed,
+                            )
+                        }
                     }
                 }
                 return;

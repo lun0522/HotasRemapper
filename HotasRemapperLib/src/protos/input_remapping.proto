@@ -26,7 +26,10 @@ message HatSwitchInput {
 // the axis into N parts, and the game must support it. This at least works for
 // throttle control.
 message AxisInput {
-  repeated int32 key_codes = 1;
+  int32 min_value = 1;
+  int32 max_value = 2;
+  bool reverse_axis = 3;
+  repeated int32 key_codes = 4;
 }
 
 message Input {
