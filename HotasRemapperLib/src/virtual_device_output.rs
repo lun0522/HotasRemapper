@@ -2,9 +2,8 @@ use std::ffi::c_char;
 
 enum ReportField {
     _ModifierKeyStates = 0,
-    _VendorReserved = 1,
-    KeyStatesBegin = 2,
-    KeyStatesEndExclusive = 8,
+    KeyStatesBegin = 1,
+    KeyStatesEndExclusive = 7,
 }
 
 const REPORT_LENGTH: usize = ReportField::KeyStatesEndExclusive as usize;

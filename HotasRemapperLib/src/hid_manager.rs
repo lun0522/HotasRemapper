@@ -29,7 +29,7 @@ use io_kit_sys::hid::usage_tables::kHIDPage_GenericDesktop;
 use io_kit_sys::hid::usage_tables::kHIDUsage_GD_Joystick;
 use io_kit_sys::ret::kIOReturnSuccess;
 
-use crate::utils::new_cf_string;
+use crate::utils::new_cf_string_from_ptr;
 
 /// A trait to provide what we need for calling
 /// `IOHIDManagerRegisterDeviceMatchingCallback()` and
@@ -87,10 +87,12 @@ fn create_manager() -> IOHIDManagerRef {
 
 /// The caller must ensure `manager_ref` is still alive.
 unsafe fn set_device_matching_criteria(manager_ref: &IOHIDManagerRef) {
-    let new_kv_pair =
-        |key: *const c_char, value: u32| -> (CFString, CFNumber) {
-            (new_cf_string(key).unwrap(), CFNumber::from(value as i32))
-        };
+    let new_kv_pair = |key: *const c_char, value: u32| {
+        (
+            new_cf_string_from_ptr(key).unwrap(),
+            CFNumber::from(value as i32),
+        )
+    };
     let criteria = CFDictionary::from_CFType_pairs(&[
         new_kv_pair(kIOHIDDeviceUsagePageKey, kHIDPage_GenericDesktop),
         new_kv_pair(kIOHIDDeviceUsageKey, kHIDUsage_GD_Joystick),

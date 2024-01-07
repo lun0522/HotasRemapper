@@ -10,7 +10,17 @@ use core_foundation::string::CFStringGetLength;
 use core_foundation::string::CFStringRef;
 
 /// Safety: see safety comments of `CStr::from_ptr()`.
-pub(crate) unsafe fn new_cf_string(ptr: *const c_char) -> Result<CFString> {
+pub(crate) unsafe fn new_string_from_ptr(ptr: *const c_char) -> Result<String> {
+    match CStr::from_ptr(ptr).to_str() {
+        Ok(string) => Ok(string.to_string()),
+        Err(e) => bail!("Not valid UTF-8: {}", e),
+    }
+}
+
+/// Safety: see safety comments of `CStr::from_ptr()`.
+pub(crate) unsafe fn new_cf_string_from_ptr(
+    ptr: *const c_char,
+) -> Result<CFString> {
     match CStr::from_ptr(ptr).to_str() {
         Ok(string) => Ok(CFString::from_static_string(string)),
         Err(e) => bail!("Not valid UTF-8: {}", e),
@@ -18,7 +28,9 @@ pub(crate) unsafe fn new_cf_string(ptr: *const c_char) -> Result<CFString> {
 }
 
 /// Safety: see safety comments of `CStr::from_ptr()`. Assumes UTF-8 encoding.
-pub(crate) unsafe fn new_string(string_ref: CFStringRef) -> Result<String> {
+pub(crate) unsafe fn new_string_from_cf_string(
+    string_ref: CFStringRef,
+) -> Result<String> {
     let buffer_size = CFStringGetLength(string_ref) + 1;
     let mut buffer: Vec<u8> = vec![0; buffer_size as usize];
     if CFStringGetCString(

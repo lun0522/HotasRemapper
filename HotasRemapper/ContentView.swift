@@ -8,14 +8,32 @@
 import SwiftUI
 
 struct ContentView: View {
+  @State private var isImportingFile = false
   @State private var isJoystickConnected = false
   @State private var isThrottleConnected = false
   @State private var isVirtualDeviceConnected = false
   let didGrantAccess: Bool
+  let loadInputMapping: (String) -> Void
 
   var body: some View {
     VStack {
       if didGrantAccess {
+        Button("Load input mapping") {
+          isImportingFile = true
+        }
+        .fileImporter(
+          isPresented: $isImportingFile,
+          allowedContentTypes: [.json],
+          onCompletion: { result in
+            switch result {
+              case .success(let file):
+                loadInputMapping(file.path())
+              case .failure(let error):
+                print(
+                  "Failed to select input mapping file",
+                  error.localizedDescription)
+            }
+          })
         Text("Joystick connected: " + toString(isJoystickConnected))
         Text("Throttle connected: " + toString(isThrottleConnected))
         Text("Virtual device connected: " + toString(isVirtualDeviceConnected))
@@ -46,7 +64,7 @@ struct ContentView: View {
 }
 
 #Preview {
-  ContentView(didGrantAccess: true)
+  ContentView(didGrantAccess: true, loadInputMapping: { _ in })
 }
 
 private func toString(_ value: Bool) -> String {

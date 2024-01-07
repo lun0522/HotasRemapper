@@ -27,8 +27,8 @@ use io_kit_sys::hid::value::IOHIDValueGetIntegerValue;
 
 use crate::hid_device_input::DeviceInput;
 use crate::hid_device_input::InputType;
-use crate::utils::new_cf_string;
-use crate::utils::new_string;
+use crate::utils::new_cf_string_from_ptr;
+use crate::utils::new_string_from_cf_string;
 
 /// A trait to provide what we need for calling
 /// `IOHIDDeviceRegisterInputValueCallback()`.
@@ -49,7 +49,7 @@ impl DeviceProperty {
         let get_property = |key: *const c_char| unsafe {
             IOHIDDeviceGetProperty(
                 device_ref,
-                new_cf_string(key).unwrap().as_concrete_TypeRef(),
+                new_cf_string_from_ptr(key).unwrap().as_concrete_TypeRef(),
             )
         };
         // Safe because the system guarantees `IOHIDDeviceGetProperty()` returns
@@ -58,7 +58,8 @@ impl DeviceProperty {
             get_property(key)
                 .as_ref()
                 .and_then(|name| {
-                    new_string(name as *const c_void as CFStringRef).ok()
+                    let name_cf_string = name as *const c_void as CFStringRef;
+                    new_string_from_cf_string(name_cf_string).ok()
                 })
                 .unwrap_or(default.to_string())
         };
@@ -106,9 +107,15 @@ impl TryFrom<&DeviceProperty> for DeviceType {
 }
 
 #[derive(Debug)]
-pub(crate) struct InputEvent {
+pub(crate) struct RawInputEvent {
     pub device_ref: IOHIDDeviceRef,
     pub input_id: IOHIDElementCookie,
+    pub value: i32,
+}
+
+pub(crate) struct InputEvent {
+    pub device_type: DeviceType,
+    pub device_input: DeviceInput,
     pub value: i32,
 }
 
@@ -141,18 +148,18 @@ impl HIDDevice {
         self.device_type
     }
 
-    pub fn handle_input_event(
+    pub fn interpret_raw_input_event(
         &self,
-        input_event: InputEvent,
-    ) -> Option<(&DeviceInput, i32)> {
+        input_event: RawInputEvent,
+    ) -> Option<InputEvent> {
         match self.input_map.get(&input_event.input_id) {
             Some(device_input) => {
                 if !matches!(device_input.input_type, InputType::Other) {
-                    println!(
-                        "New input from {:?} {}: {}",
-                        self.device_type, device_input.name, input_event.value,
-                    );
-                    return Some((device_input, input_event.value));
+                    return Some(InputEvent {
+                        device_type: self.device_type,
+                        device_input: *device_input,
+                        value: input_event.value,
+                    });
                 }
             }
             None => println!(
@@ -163,7 +170,7 @@ impl HIDDevice {
         None
     }
 
-    pub fn read_input_event(value: IOHIDValueRef) -> Option<InputEvent> {
+    pub fn read_raw_input_event(value: IOHIDValueRef) -> Option<RawInputEvent> {
         // Safe because the system guarantees these references are valid.
         unsafe {
             if value.is_null() {
@@ -173,7 +180,7 @@ impl HIDDevice {
             if element.is_null() {
                 return None;
             }
-            Some(InputEvent {
+            Some(RawInputEvent {
                 device_ref: IOHIDElementGetDevice(element),
                 input_id: IOHIDElementGetCookie(element),
                 value: IOHIDValueGetIntegerValue(value) as i32,

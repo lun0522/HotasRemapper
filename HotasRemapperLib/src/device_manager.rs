@@ -17,6 +17,7 @@ use crate::hid_device::HIDDevice;
 use crate::hid_device::HandleInputEvent;
 use crate::hid_manager::HIDManager;
 use crate::hid_manager::HandleDeviceEvent;
+use crate::input_remapper::InputRemapper;
 use crate::virtual_device::VirtualDevice;
 use crate::ConnectionStatusCallback;
 use crate::DeviceType;
@@ -27,6 +28,7 @@ pub(crate) struct DeviceManager {
     hid_manager: HIDManager,
     hid_devices: HashMap<IOHIDDeviceRef, HIDDevice>,
     virtual_deivce: VirtualDevice,
+    input_remapper: InputRemapper,
     connection_status_callback: ConnectionStatusCallback,
     // We want to make sure the `DeviceManager` doesn't get moved, so the user
     // can rely on an everlasting pointer to it.
@@ -41,6 +43,7 @@ impl DeviceManager {
             hid_manager: HIDManager::new()?,
             hid_devices: Default::default(),
             virtual_deivce: VirtualDevice::new(connection_status_callback),
+            input_remapper: InputRemapper::new(),
             connection_status_callback,
             _pinned_marker: PhantomPinned,
         });
@@ -55,6 +58,12 @@ impl DeviceManager {
                 .set_device_callbacks(pinned_manager_ptr);
         }
         Ok(manager)
+    }
+
+    pub fn load_input_mapping_from_file(&mut self, file_path: &str) {
+        if let Err(e) = self.input_remapper.load_mapping_from_file(file_path) {
+            println!("Failed to load input mapping: {:?}", e);
+        }
     }
 
     fn report_connection_status(
@@ -113,29 +122,20 @@ impl DeviceManager {
     }
 
     fn handle_input_received(&mut self, value: IOHIDValueRef) {
-        if let Some(input_event) = HIDDevice::read_input_event(value) {
-            if let Some(device) = self.hid_devices.get(&input_event.device_ref)
+        if let Some(raw_input_event) = HIDDevice::read_raw_input_event(value) {
+            if let Some(device) =
+                self.hid_devices.get(&raw_input_event.device_ref)
             {
-                // TODO: this is only for POC.
-                if let Some((device_input, input_value)) =
-                    device.handle_input_event(input_event)
+                if let Some(input_event) =
+                    device.interpret_raw_input_event(raw_input_event)
                 {
-                    match device_input.name.as_str() {
-                        "Button25" => {
-                            // "A"
-                            self.virtual_deivce.send_output_with_new_key_event(
-                                /* key_code= */ 0x04,
-                                /* is_pressed= */ input_value != 0,
-                            )
-                        }
-                        "Button20" => {
-                            // "B"
-                            self.virtual_deivce.send_output_with_new_key_event(
-                                /* key_code= */ 0x05,
-                                /* is_pressed= */ input_value != 0,
-                            )
-                        }
-                        _ => (),
+                    if let Some(key_event) =
+                        self.input_remapper.remap_input_event(&input_event)
+                    {
+                        self.virtual_deivce.send_output_with_new_key_event(
+                            key_event.key_code,
+                            key_event.is_pressed,
+                        )
                     }
                 }
                 return;

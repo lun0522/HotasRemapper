@@ -17,8 +17,9 @@ enum DeviceType {
   kVirtualDevice = 2,
 };
 
-void* OpenLib(void (*connection_status_callback)(enum DeviceType deviceType,
-                                                 bool isConnected));
+void* OpenLib(void (*connection_status_callback)(enum DeviceType device_type,
+                                                 bool is_connected));
+void LoadInputMapping(void* handle, const char* file_path_ptr);
 void CloseLib(void* handle);
 
 #endif /* HotasRemapperLib_h */

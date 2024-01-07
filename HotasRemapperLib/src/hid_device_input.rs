@@ -38,9 +38,10 @@ pub(crate) enum InputType {
     Other,
 }
 
+#[derive(Clone, Copy, Eq, Hash, PartialEq)]
 pub(crate) struct DeviceInput {
-    pub name: String,
     pub input_type: InputType,
+    pub index: i32,
 }
 
 impl DeviceInput {
@@ -55,8 +56,8 @@ impl DeviceInput {
             let curr_index = *index;
             *index += 1;
             Self {
-                name: format!("{:?}{}", input_type, curr_index),
                 input_type,
+                index: curr_index,
             }
         };
 

@@ -45,7 +45,15 @@ struct HotasRemapperApp: App {
 
   var body: some Scene {
     WindowGroup {
-      ContentView(didGrantAccess: appDelegate.didGrantAccess)
+      ContentView(
+        didGrantAccess: appDelegate.didGrantAccess,
+        loadInputMapping: { filePath in
+          if appDelegate.libHandle != nil {
+            filePath.withCString({ filePathPtr in
+              LoadInputMapping(appDelegate.libHandle, filePathPtr)
+            })
+          }
+        })
     }
   }
 }
