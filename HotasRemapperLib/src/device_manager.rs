@@ -12,12 +12,12 @@ use io_kit_sys::hid::base::IOHIDValueCallback;
 use io_kit_sys::hid::base::IOHIDValueRef;
 use io_kit_sys::ret::IOReturn;
 
-use crate::hid_device::DeviceProperty;
-use crate::hid_device::DeviceType as HIDDeviceType;
-use crate::hid_device::HIDDevice;
-use crate::hid_device::HandleInputEvent;
-use crate::hid_manager::HIDManager;
-use crate::hid_manager::HandleDeviceEvent;
+use crate::input_reader::hid_device::DeviceProperty;
+use crate::input_reader::hid_device::DeviceType as HIDDeviceType;
+use crate::input_reader::hid_device::HIDDevice;
+use crate::input_reader::hid_device::HandleInputEvent;
+use crate::input_reader::hid_manager::HIDManager;
+use crate::input_reader::hid_manager::HandleDeviceEvent;
 use crate::input_remapper::InputRemapper;
 use crate::virtual_device::VirtualDevice;
 use crate::ConnectionStatusCallback;
@@ -129,6 +129,13 @@ impl DeviceManager {
                 if let Some(input_event) =
                     device.interpret_raw_input_event(raw_input_event)
                 {
+                    // println!(
+                    //     "Recieved input {} from {:?} {:?} {}",
+                    //     input_event.value,
+                    //     input_event.device_type,
+                    //     input_event.device_input.input_type,
+                    //     input_event.device_input.index
+                    // );
                     if let Some(key_events) =
                         self.input_remapper.remap_input_event(&input_event)
                     {

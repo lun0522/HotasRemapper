@@ -25,8 +25,8 @@ use io_kit_sys::hid::keys::IOHIDElementCookie;
 use io_kit_sys::hid::value::IOHIDValueGetElement;
 use io_kit_sys::hid::value::IOHIDValueGetIntegerValue;
 
-use crate::hid_device_input::DeviceInput;
-use crate::hid_device_input::InputType;
+use super::hid_device_input::DeviceInput;
+use super::hid_device_input::InputType;
 use crate::utils::new_cf_string_from_ptr;
 use crate::utils::new_string_from_cf_string;
 

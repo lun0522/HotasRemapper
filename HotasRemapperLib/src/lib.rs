@@ -2,9 +2,7 @@
 #![allow(non_snake_case)]
 
 mod device_manager;
-mod hid_device;
-mod hid_device_input;
-mod hid_manager;
+mod input_reader;
 mod input_remapper;
 pub(crate) mod utils;
 mod virtual_device;
