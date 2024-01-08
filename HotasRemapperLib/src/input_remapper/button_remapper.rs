@@ -1,8 +1,7 @@
 use std::convert::TryFrom;
 use std::ffi::c_char;
 
-use anyhow::anyhow;
-
+use super::convert_key_code;
 use super::input_remapping::ButtonInput;
 use super::KeyEvent;
 use super::RemapInputValue;
@@ -15,12 +14,7 @@ impl TryFrom<&ButtonInput> for ButtonRemapper {
     type Error = anyhow::Error;
 
     fn try_from(input: &ButtonInput) -> Result<Self, Self::Error> {
-        match c_char::try_from(input.key_code) {
-            Ok(key_code) => Ok(Self { key_code }),
-            Err(e) => {
-                Err(anyhow!("Cannot convert {} to char: {}", input.key_code, e))
-            }
-        }
+        convert_key_code(input.key_code).map(|key_code| Self { key_code })
     }
 }
 

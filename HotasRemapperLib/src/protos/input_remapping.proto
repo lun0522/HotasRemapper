@@ -18,6 +18,8 @@ message ToggleSwitchInput {
 // An N-way (where N is 4 or 8) hat switch is remapped to N key codes. It is
 // similar to having N buttons, but note that a KEY_UP event will be fired
 // whenever the hat is moved to another position.
+// For an N-way hat switch, the length of `key_codes` mus tbe N. Put a 0 if you
+// don't want to map a certain hat position to a key.
 message HatSwitchInput {
   repeated int32 key_codes = 1;
 }

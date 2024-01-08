@@ -1,8 +1,7 @@
 use std::convert::TryFrom;
 use std::ffi::c_char;
 
-use anyhow::anyhow;
-
+use super::convert_key_codes;
 use super::input_remapping::AxisInput;
 use super::KeyEvent;
 use super::RemapInputValue;
@@ -17,18 +16,7 @@ impl TryFrom<&AxisInput> for AxisRemapper {
     type Error = anyhow::Error;
 
     fn try_from(input: &AxisInput) -> Result<Self, Self::Error> {
-        let key_codes = input
-            .key_codes
-            .iter()
-            .map(|key_code_i32| match c_char::try_from(*key_code_i32) {
-                Ok(key_code) => Ok(key_code),
-                Err(e) => Err(anyhow!(
-                    "Cannot convert {} to char: {}",
-                    key_code_i32,
-                    e
-                )),
-            })
-            .collect::<Result<Vec<_>, _>>()?;
+        let key_codes = convert_key_codes(&input.key_codes)?;
         let (min_value, max_value) = if !input.reverse_axis {
             (input.min_value as f64, input.max_value as f64)
         } else {

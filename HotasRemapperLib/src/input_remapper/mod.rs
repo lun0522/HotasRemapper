@@ -2,15 +2,20 @@ include!(concat!(env!("OUT_DIR"), "/protos/mod.rs"));
 
 mod axis_remapper;
 mod button_remapper;
+mod hat_switch_remapper;
 
 use std::collections::HashMap;
 use std::convert::From;
 use std::ffi::c_char;
 
+use anyhow::anyhow;
 use anyhow::bail;
+use anyhow::Error;
 use anyhow::Result;
 use axis_remapper::AxisRemapper;
 use button_remapper::ButtonRemapper;
+use core::result::Result as CoreResult;
+use hat_switch_remapper::HatSwitchRemapper;
 use input_remapping::InputRemapping;
 use protobuf::text_format::parse_from_str as parse_proto_from_str;
 
@@ -115,6 +120,33 @@ impl InputRemapper {
                 Box::new(AxisRemapper::try_from(input.axis_input())?),
             );
         }
+        let joystick_hat_switch_remapping =
+            match input_remapping.joystick_inputs.get("hat_switch") {
+                Some(remapping) => remapping,
+                None => bail!("Joystick hat switch not found!"),
+            };
+        for (index, input) in joystick_hat_switch_remapping.inputs.iter() {
+            if !input.has_hat_switch_input() {
+                continue;
+            }
+            println!(
+                "Remapping joystick hat switch {} to {:?}",
+                index,
+                input.hat_switch_input().key_codes
+            );
+            self.input_remapping.insert(
+                InputIdentifier {
+                    device_type: DeviceType::Joystick,
+                    device_input: DeviceInput {
+                        input_type: InputType::Hat,
+                        index: *index,
+                    },
+                },
+                Box::new(HatSwitchRemapper::try_from(
+                    input.hat_switch_input(),
+                )?),
+            );
+        }
         Ok(())
     }
 
@@ -126,4 +158,13 @@ impl InputRemapper {
             .get_mut(&input_event.into())
             .and_then(|remapper| remapper.remap(input_event.value))
     }
+}
+
+fn convert_key_code(key_code: i32) -> CoreResult<c_char, Error> {
+    c_char::try_from(key_code)
+        .map_err(|e| anyhow!("Cannot convert {} to char: {}", key_code, e))
+}
+
+fn convert_key_codes(key_codes: &Vec<i32>) -> CoreResult<Vec<c_char>, Error> {
+    key_codes.iter().cloned().map(convert_key_code).collect()
 }

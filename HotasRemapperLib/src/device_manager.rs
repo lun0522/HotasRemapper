@@ -129,13 +129,6 @@ impl DeviceManager {
                 if let Some(input_event) =
                     device.interpret_raw_input_event(raw_input_event)
                 {
-                    // println!(
-                    //     "Recieved input {} from {:?} {:?} {}",
-                    //     input_event.value,
-                    //     input_event.device_type,
-                    //     input_event.device_input.input_type,
-                    //     input_event.device_input.index
-                    // );
                     if let Some(key_events) =
                         self.input_remapper.remap_input_event(&input_event)
                     {

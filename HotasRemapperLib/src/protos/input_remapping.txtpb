@@ -1,19 +1,39 @@
+joystick_inputs {
+    key: "hat_switch"
+    value {
+        inputs {
+            key: 0
+            value {
+                hat_switch_input {
+                    key_codes: 82
+                    key_codes: 0
+                    key_codes: 79
+                    key_codes: 0
+                    key_codes: 81
+                    key_codes: 0
+                    key_codes: 80
+                    key_codes: 0
+                }
+            }
+        }
+    }
+}
 throttle_inputs {
     key: "button"
     value {
         inputs {
-            key: 25
+            key: 20
             value {
                 button_input {
-                    key_code: 1
+                    key_code: 5
                 }
             }
         }
         inputs {
-            key: 20
+            key: 25
             value {
                 button_input {
-                    key_code: 2
+                    key_code: 4
                 }
             }
         }
