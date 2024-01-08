@@ -1,4 +1,7 @@
 use std::collections::HashMap;
+use std::fmt::Display;
+use std::fmt::Formatter;
+use std::fmt::Result as FmtResult;
 
 use io_kit_sys::hid::base::IOHIDElementRef;
 use io_kit_sys::hid::element::IOHIDElementGetCookie;
@@ -27,6 +30,7 @@ const kHIDUsage_Ignored: u32 = kHIDUsage_GD_X - 1;
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub(crate) enum InputType {
     Button,
+    Hat,
     XAxis,
     YAxis,
     ZAxis,
@@ -34,7 +38,6 @@ pub(crate) enum InputType {
     RyAxis,
     RzAxis,
     Slider,
-    Hat,
     Other,
 }
 
@@ -110,5 +113,11 @@ impl DeviceInput {
             identifier, element_type, usage,
         );
         None
+    }
+}
+
+impl Display for DeviceInput {
+    fn fmt(&self, formatter: &mut Formatter) -> FmtResult {
+        formatter.write_fmt(format_args!("{:?}{}", self.input_type, self.index))
     }
 }

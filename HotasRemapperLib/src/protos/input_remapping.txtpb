@@ -1,5 +1,5 @@
 joystick_inputs {
-    key: "hat_switch"
+    key: "hat"
     value {
         inputs {
             key: 0
@@ -40,7 +40,7 @@ throttle_inputs {
     }
 }
 throttle_inputs {
-    key: "z_axis"
+    key: "z-axis"
     value {
         inputs {
             key: 0

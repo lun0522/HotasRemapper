@@ -34,7 +34,7 @@ message AxisInput {
   repeated int32 key_codes = 4;
 }
 
-message Input {
+message RemappedInput {
   oneof input {
     ButtonInput button_input = 1;
     ToggleSwitchInput toggle_switch_input = 2;
@@ -43,15 +43,24 @@ message Input {
   }
 }
 
-// For example, this could mean all buttons on the throttle, where some of them
+// For example, this could cover all buttons on the throttle, where some of them
 // will be remapped to ButtonInput, and some remapped to ToggleSwitchInput.
 // The key of the map will be the button index in this example.
-message InputCollection {
-  map<int32, Input> inputs = 1;
+message RemappedInputs {
+  map<int32, RemappedInput> inputs = 1;
 }
 
-// The key of the map specifies the input type, e.g. "button".
+// The key of the map specifies the input type, i.e. one of:
+//   * "button"
+//   * "slider"
+//   * "x-axis"
+//   * "y-axis"
+//   * "z-axis"
+//   * "rx-axis"
+//   * "ry-axis"
+//   * "rz-axis"
+//   * "hat"
 message InputRemapping {
-  map<string, InputCollection> joystick_inputs = 1;
-  map<string, InputCollection> throttle_inputs = 2;
+  map<string, RemappedInputs> joystick_inputs = 1;
+  map<string, RemappedInputs> throttle_inputs = 2;
 }

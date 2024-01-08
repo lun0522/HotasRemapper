@@ -1,12 +1,15 @@
 use std::convert::TryFrom;
 use std::ffi::c_char;
+use std::fmt::Display;
+use std::fmt::Formatter;
+use std::fmt::Result as FmtResult;
 
 use anyhow::anyhow;
 
 use super::convert_key_codes;
-use super::input_remapping::HatSwitchInput;
 use super::KeyEvent;
 use super::RemapInputValue;
+use crate::input_remapping::HatSwitchInput;
 
 pub(crate) struct HatSwitchRemapper {
     key_codes: Vec<c_char>,
@@ -66,5 +69,11 @@ impl RemapInputValue for HatSwitchRemapper {
                 },
             ])
         }
+    }
+}
+
+impl Display for HatSwitchRemapper {
+    fn fmt(&self, formatter: &mut Formatter) -> FmtResult {
+        formatter.write_fmt(format_args!("{:?}", self.key_codes))
     }
 }

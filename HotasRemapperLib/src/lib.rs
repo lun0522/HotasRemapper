@@ -1,6 +1,8 @@
 // We use camel case for the project name in Xcode convention.
 #![allow(non_snake_case)]
 
+include!(concat!(env!("OUT_DIR"), "/protos/mod.rs"));
+
 mod device_manager;
 mod input_reader;
 mod input_remapper;

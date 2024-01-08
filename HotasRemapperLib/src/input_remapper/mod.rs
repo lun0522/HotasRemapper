@@ -1,12 +1,12 @@
-include!(concat!(env!("OUT_DIR"), "/protos/mod.rs"));
-
 mod axis_remapper;
 mod button_remapper;
 mod hat_switch_remapper;
 
 use std::collections::HashMap;
 use std::convert::From;
+use std::convert::TryFrom;
 use std::ffi::c_char;
+use std::fmt::Display;
 
 use anyhow::anyhow;
 use anyhow::bail;
@@ -16,13 +16,14 @@ use axis_remapper::AxisRemapper;
 use button_remapper::ButtonRemapper;
 use core::result::Result as CoreResult;
 use hat_switch_remapper::HatSwitchRemapper;
-use input_remapping::InputRemapping;
 use protobuf::text_format::parse_from_str as parse_proto_from_str;
 
 use crate::input_reader::hid_device::DeviceType;
 use crate::input_reader::hid_device::InputEvent;
 use crate::input_reader::hid_device_input::DeviceInput;
 use crate::input_reader::hid_device_input::InputType;
+use crate::input_remapping::InputRemapping;
+use crate::input_remapping::RemappedInput;
 
 pub(crate) struct KeyEvent {
     pub key_code: c_char,
@@ -44,109 +45,26 @@ impl From<&InputEvent> for InputIdentifier {
     }
 }
 
-trait RemapInputValue {
+trait RemapInputValue: Display {
     fn remap(&mut self, value: i32) -> Option<Vec<KeyEvent>>;
 }
 
 pub(crate) struct InputRemapper {
-    input_remapping: HashMap<InputIdentifier, Box<dyn RemapInputValue>>,
+    input_remappers: HashMap<InputIdentifier, Box<dyn RemapInputValue>>,
 }
 
 impl InputRemapper {
     pub fn new() -> Self {
         Self {
-            input_remapping: Default::default(),
+            input_remappers: Default::default(),
         }
     }
 
     pub fn load_remapping_from_file(&mut self, file_path: &str) -> Result<()> {
-        self.input_remapping.clear();
-        let file_content = match std::fs::read_to_string(file_path) {
-            Ok(content) => content,
-            Err(e) => bail!("Failed to read file: {}", e),
-        };
-        let input_remapping =
-            match parse_proto_from_str::<InputRemapping>(&file_content) {
-                Ok(remapping) => remapping,
-                Err(e) => bail!("Failed to parse as text proto: {}", e),
-            };
-        let throttle_button_remapping =
-            match input_remapping.throttle_inputs.get("button") {
-                Some(remapping) => remapping,
-                None => bail!("Throttle remapping not found!"),
-            };
-        for (index, input) in throttle_button_remapping.inputs.iter() {
-            if !input.has_button_input() {
-                continue;
-            }
-            println!(
-                "Remapping throttle button {} to {}",
-                index,
-                input.button_input().key_code
-            );
-            self.input_remapping.insert(
-                InputIdentifier {
-                    device_type: DeviceType::Throttle,
-                    device_input: DeviceInput {
-                        input_type: InputType::Button,
-                        index: *index,
-                    },
-                },
-                Box::new(ButtonRemapper::try_from(input.button_input())?),
-            );
-        }
-        let throttle_z_axis_remapping =
-            match input_remapping.throttle_inputs.get("z_axis") {
-                Some(remapping) => remapping,
-                None => bail!("Throttle z-axis not found!"),
-            };
-        for (index, input) in throttle_z_axis_remapping.inputs.iter() {
-            if !input.has_axis_input() {
-                continue;
-            }
-            println!(
-                "Remapping throttle z-axis {} to {:?}",
-                index,
-                input.axis_input().key_codes
-            );
-            self.input_remapping.insert(
-                InputIdentifier {
-                    device_type: DeviceType::Throttle,
-                    device_input: DeviceInput {
-                        input_type: InputType::ZAxis,
-                        index: *index,
-                    },
-                },
-                Box::new(AxisRemapper::try_from(input.axis_input())?),
-            );
-        }
-        let joystick_hat_switch_remapping =
-            match input_remapping.joystick_inputs.get("hat_switch") {
-                Some(remapping) => remapping,
-                None => bail!("Joystick hat switch not found!"),
-            };
-        for (index, input) in joystick_hat_switch_remapping.inputs.iter() {
-            if !input.has_hat_switch_input() {
-                continue;
-            }
-            println!(
-                "Remapping joystick hat switch {} to {:?}",
-                index,
-                input.hat_switch_input().key_codes
-            );
-            self.input_remapping.insert(
-                InputIdentifier {
-                    device_type: DeviceType::Joystick,
-                    device_input: DeviceInput {
-                        input_type: InputType::Hat,
-                        index: *index,
-                    },
-                },
-                Box::new(HatSwitchRemapper::try_from(
-                    input.hat_switch_input(),
-                )?),
-            );
-        }
+        self.input_remappers.clear();
+        let input_remapping = Self::read_remapping_from_file(file_path)?;
+        self.load_remapping_for_device(&input_remapping, DeviceType::Joystick)?;
+        self.load_remapping_for_device(&input_remapping, DeviceType::Throttle)?;
         Ok(())
     }
 
@@ -154,9 +72,92 @@ impl InputRemapper {
         &mut self,
         input_event: &InputEvent,
     ) -> Option<Vec<KeyEvent>> {
-        self.input_remapping
+        self.input_remappers
             .get_mut(&input_event.into())
             .and_then(|remapper| remapper.remap(input_event.value))
+    }
+
+    fn read_remapping_from_file(file_path: &str) -> Result<InputRemapping> {
+        let file_content = match std::fs::read_to_string(file_path) {
+            Ok(content) => content,
+            Err(e) => bail!("Failed to read file: {}", e),
+        };
+        parse_proto_from_str::<InputRemapping>(&file_content)
+            .map_err(|e| anyhow!("Failed to parse as text proto: {}", e))
+    }
+
+    fn load_remapping_for_device(
+        &mut self,
+        input_remapping: &InputRemapping,
+        device_type: DeviceType,
+    ) -> Result<()> {
+        let remapped_inputs = match device_type {
+            DeviceType::Joystick => &input_remapping.joystick_inputs,
+            DeviceType::Throttle => &input_remapping.throttle_inputs,
+        };
+        for (input_type_name, inputs) in remapped_inputs.iter() {
+            let input_type: InputType = match input_type_name
+                .as_str()
+                .try_into()
+            {
+                Ok(input_type) => input_type,
+                Err(_) => bail!("Unknown input type name: {}", input_type_name),
+            };
+            for (index, input) in inputs.inputs.iter() {
+                let device_input = DeviceInput {
+                    input_type,
+                    index: *index,
+                };
+                let input_remapper = Self::create_input_remapper(input)?;
+                println!(
+                    "Remapping {:?} {} to {}",
+                    device_type, device_input, input_remapper
+                );
+                self.input_remappers.insert(
+                    InputIdentifier {
+                        device_type,
+                        device_input,
+                    },
+                    input_remapper,
+                );
+            }
+        }
+        Ok(())
+    }
+
+    fn create_input_remapper(
+        input: &RemappedInput,
+    ) -> Result<Box<dyn RemapInputValue>> {
+        Ok(if input.has_button_input() {
+            Box::new(ButtonRemapper::try_from(input.button_input())?)
+        } else if input.has_toggle_switch_input() {
+            unimplemented!()
+        } else if input.has_hat_switch_input() {
+            Box::new(HatSwitchRemapper::try_from(input.hat_switch_input())?)
+        } else if input.has_axis_input() {
+            Box::new(AxisRemapper::try_from(input.axis_input())?)
+        } else {
+            unreachable!()
+        })
+    }
+}
+
+impl TryFrom<&str> for InputType {
+    type Error = &'static str;
+
+    fn try_from(name: &str) -> Result<Self, Self::Error> {
+        match name {
+            "button" => Ok(InputType::Button),
+            "hat" => Ok(InputType::Hat),
+            "x-axis" => Ok(InputType::XAxis),
+            "y-axis" => Ok(InputType::YAxis),
+            "z-axis" => Ok(InputType::ZAxis),
+            "rx-axis" => Ok(InputType::RxAxis),
+            "ry-axis" => Ok(InputType::RyAxis),
+            "rz-axis" => Ok(InputType::RzAxis),
+            "slider" => Ok(InputType::Slider),
+            _ => Err("Unknown type"),
+        }
     }
 }
 

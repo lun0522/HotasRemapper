@@ -1,6 +1,9 @@
 use std::collections::HashMap;
 use std::ffi::c_char;
 use std::ffi::c_void;
+use std::fmt::Display;
+use std::fmt::Formatter;
+use std::fmt::Result as FmtResult;
 use std::ptr::null_mut;
 
 use core_foundation::array::CFArrayGetCount;
@@ -78,8 +81,8 @@ impl DeviceProperty {
     }
 }
 
-impl std::fmt::Display for DeviceProperty {
-    fn fmt(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+impl Display for DeviceProperty {
+    fn fmt(&self, formatter: &mut Formatter) -> FmtResult {
         formatter.write_fmt(format_args!(
             "{{device name: {:?}, vendor id: {:#x}, product id: {:#x}, \
             transport: {:?}}}",
