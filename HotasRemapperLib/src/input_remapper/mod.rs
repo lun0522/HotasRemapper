@@ -60,9 +60,14 @@ impl InputRemapper {
         }
     }
 
-    pub fn load_remapping_from_file(&mut self, file_path: &str) -> Result<()> {
+    pub fn load_input_remapping(
+        &mut self,
+        encoded_input_remapping: &str,
+    ) -> Result<()> {
         self.input_remappers.clear();
-        let input_remapping = Self::read_remapping_from_file(file_path)?;
+        let input_remapping =
+            parse_proto_from_str::<InputRemapping>(&encoded_input_remapping)
+                .map_err(|e| anyhow!("Failed to parse as text proto: {}", e))?;
         self.load_remapping_for_device(&input_remapping, DeviceType::Joystick)?;
         self.load_remapping_for_device(&input_remapping, DeviceType::Throttle)?;
         Ok(())
@@ -75,15 +80,6 @@ impl InputRemapper {
         self.input_remappers
             .get_mut(&input_event.into())
             .and_then(|remapper| remapper.remap(input_event.value))
-    }
-
-    fn read_remapping_from_file(file_path: &str) -> Result<InputRemapping> {
-        let file_content = match std::fs::read_to_string(file_path) {
-            Ok(content) => content,
-            Err(e) => bail!("Failed to read file: {}", e),
-        };
-        parse_proto_from_str::<InputRemapping>(&file_content)
-            .map_err(|e| anyhow!("Failed to parse as text proto: {}", e))
     }
 
     fn load_remapping_for_device(

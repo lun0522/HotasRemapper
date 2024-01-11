@@ -13,7 +13,7 @@ struct ContentView: View {
   @State private var isThrottleConnected = false
   @State private var isVirtualDeviceConnected = false
   let didGrantAccess: Bool
-  let loadInputRemapping: (String) -> Void
+  let loadInputRemapping: (URL) -> Void
 
   var body: some View {
     VStack {
@@ -26,8 +26,8 @@ struct ContentView: View {
           allowedContentTypes: [.item],
           onCompletion: { result in
             switch result {
-              case .success(let file):
-                loadInputRemapping(file.path())
+              case .success(let url):
+                loadInputRemapping(url)
               case .failure(let error):
                 print(
                   "Failed to select input remapping file",

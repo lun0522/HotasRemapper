@@ -59,11 +59,12 @@ impl DeviceManager {
         Ok(manager)
     }
 
-    pub fn load_input_remapping_from_file(&mut self, file_path: &str) {
-        if let Err(e) = self.input_remapper.load_remapping_from_file(file_path)
-        {
-            println!("Failed to load input remapping: {:?}", e);
-        }
+    pub fn load_input_remapping(
+        &mut self,
+        encoded_input_remapping: &str,
+    ) -> Result<()> {
+        self.input_remapper
+            .load_input_remapping(encoded_input_remapping)
     }
 
     fn report_connection_status(

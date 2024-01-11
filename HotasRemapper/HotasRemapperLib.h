@@ -19,7 +19,7 @@ enum DeviceType {
 
 void* OpenLib(void (*connection_status_callback)(enum DeviceType device_type,
                                                  bool is_connected));
-void LoadInputRemapping(void* handle, const char* file_path_ptr);
-void CloseLib(void* handle);
+bool LoadInputRemapping(void* lib_handle, const char* input_remapping_ptr);
+void CloseLib(void* lib_handle);
 
 #endif /* HotasRemapperLib_h */

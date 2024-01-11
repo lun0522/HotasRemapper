@@ -13,7 +13,10 @@ mod virtual_device_output;
 use std::ffi::c_char;
 use std::ffi::c_void;
 
+use anyhow::bail;
+use anyhow::Result;
 use device_manager::DeviceManager;
+use utils::new_string_from_ptr;
 
 #[repr(C)]
 pub enum DeviceType {
@@ -49,29 +52,20 @@ pub unsafe extern "C" fn OpenLib(
     }
 }
 
-/// The caller must pass in the pointer returned by `OpenLib()`, and
-/// `file_path_ptr` must point to a null-terminated UTF-8 string.
+/// Returns true on success. The caller must pass in the pointer returned by
+/// `OpenLib()`, and `input_remapping_ptr` must point to a UTF-8 encoded
+/// `InputRemapping` message.
 #[no_mangle]
 pub unsafe extern "C" fn LoadInputRemapping(
     manager_ptr: *mut c_void,
-    file_path_ptr: *const c_char,
-) {
-    let file_path = match utils::new_string_from_ptr(file_path_ptr) {
-        Ok(path) => path,
-        Err(e) => {
-            println!("Invalid input remapping file path: {}", e);
-            return;
-        }
-    };
-    match (manager_ptr as *mut DeviceManager).as_mut() {
-        Some(manager) => {
-            println!("Loading input remapping from {}", file_path);
-            manager.load_input_remapping_from_file(&file_path.as_str());
-        }
-        None => println!(
-            "Failed to load input remapping because manager_ptr is null!"
-        ),
-    }
+    input_remapping_ptr: *const c_char,
+) -> bool {
+    load_input_remapping(manager_ptr, input_remapping_ptr)
+        .map_err(|e| {
+            println!("Failed to load input remapping: {:?}", e);
+            e
+        })
+        .is_ok()
 }
 
 /// The caller must pass in the pointer returned by `OpenLib()`.
@@ -81,6 +75,23 @@ pub unsafe extern "C" fn CloseLib(manager_ptr: *mut c_void) {
     if !manager_ptr.is_null() {
         std::ptr::drop_in_place(manager_ptr as *mut DeviceManager);
     }
+}
+
+/// Safety: see safety comments of `LoadInputRemapping()`.
+unsafe fn load_input_remapping(
+    manager_ptr: *mut c_void,
+    input_remapping_ptr: *const c_char,
+) -> Result<()> {
+    let manager = match (manager_ptr as *mut DeviceManager).as_mut() {
+        Some(manager) => manager,
+        None => bail!("manager_ptr is null"),
+    };
+    let encoded_input_remapping = match new_string_from_ptr(input_remapping_ptr)
+    {
+        Ok(remapping) => remapping,
+        Err(e) => bail!("Invalid string: {}", e),
+    };
+    manager.load_input_remapping(encoded_input_remapping.as_str())
 }
 
 pub fn project_name() -> String {

@@ -12,8 +12,9 @@ private let listenEventSettings: String =
   "x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent"
 
 private class AppDelegate: NSObject, NSApplicationDelegate {
-  var didGrantAccess: Bool
-  var libHandle: UnsafeMutableRawPointer? = nil
+  private static let cachedInputRemappingKey = "cachedInputRemapping"
+  let didGrantAccess: Bool
+  private var libHandle: UnsafeMutableRawPointer? = nil
 
   override init() {
     didGrantAccess = checkHIDAccess()
@@ -24,6 +25,7 @@ private class AppDelegate: NSObject, NSApplicationDelegate {
     NSApp.activate()
     if didGrantAccess {
       libHandle = OpenLib(connectionStatusCallback)
+      tryLoadCachedInputRemapping()
     } else {
       print("Not initializing due to lack of access")
     }
@@ -32,10 +34,38 @@ private class AppDelegate: NSObject, NSApplicationDelegate {
   func applicationShouldTerminate(_ sender: NSApplication)
     -> NSApplication.TerminateReply
   {
-    if libHandle != nil {
-      CloseLib(libHandle)
-    }
+    CloseLib(libHandle)
     return NSApplication.TerminateReply.terminateNow
+  }
+
+  func loadInputRemapping(from url: URL) {
+    let inputRemapping: String
+    do {
+      inputRemapping = try String(contentsOf: url, encoding: .utf8)
+    } catch {
+      print("Failed to read input remapping file:", error)
+      return
+    }
+    if inputRemapping.withCString({ inputRemappingPtr in
+      LoadInputRemapping(libHandle, inputRemappingPtr)
+    }) {
+      print("Persisting input remapping file content")
+      UserDefaults.standard.setValue(
+        inputRemapping, forKey: AppDelegate.cachedInputRemappingKey)
+    }
+  }
+
+  private func tryLoadCachedInputRemapping() {
+    if let inputRemapping = UserDefaults.standard.string(
+      forKey: AppDelegate.cachedInputRemappingKey)
+    {
+      print("Loading cached input remapping")
+      let _ = inputRemapping.withCString({ inputRemappingPtr in
+        LoadInputRemapping(libHandle, inputRemappingPtr)
+      })
+    } else {
+      print("No input remapping cached")
+    }
   }
 }
 
@@ -47,12 +77,8 @@ struct HotasRemapperApp: App {
     WindowGroup {
       ContentView(
         didGrantAccess: appDelegate.didGrantAccess,
-        loadInputRemapping: { filePath in
-          if appDelegate.libHandle != nil {
-            filePath.withCString({ filePathPtr in
-              LoadInputRemapping(appDelegate.libHandle, filePathPtr)
-            })
-          }
+        loadInputRemapping: { url in
+          appDelegate.loadInputRemapping(from: url)
         })
     }
   }
