@@ -8,11 +8,11 @@ mod input_reader;
 mod input_remapper;
 pub(crate) mod utils;
 mod virtual_device;
-mod virtual_device_output;
 
 use std::ffi::c_char;
 use std::ffi::c_void;
 
+use anyhow::anyhow;
 use anyhow::bail;
 use anyhow::Result;
 use device_manager::DeviceManager;
@@ -86,11 +86,8 @@ unsafe fn load_input_remapping(
         Some(manager) => manager,
         None => bail!("manager_ptr is null"),
     };
-    let encoded_input_remapping = match new_string_from_ptr(input_remapping_ptr)
-    {
-        Ok(remapping) => remapping,
-        Err(e) => bail!("Invalid string: {}", e),
-    };
+    let encoded_input_remapping = new_string_from_ptr(input_remapping_ptr)
+        .map_err(|e| anyhow!("Invalid string: {}", e))?;
     manager.load_input_remapping(encoded_input_remapping.as_str())
 }
 
