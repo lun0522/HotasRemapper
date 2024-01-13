@@ -117,13 +117,13 @@ extension Notification.Name {
 }
 
 private func connectionStatusCallback(
-  deviceType: DeviceType,
+  connectionType: ConnectionType,
   isConnected: Bool
 ) {
   // Values must be published from the main thread.
   DispatchQueue.main.async {
     NotificationCenter.default.post(
       name: .connectionStatusUpdate,
-      object: (deviceType, isConnected))
+      object: (connectionType, isConnected))
   }
 }

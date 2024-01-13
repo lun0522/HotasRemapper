@@ -19,14 +19,15 @@ use device_manager::DeviceManager;
 use utils::new_string_from_ptr;
 
 #[repr(C)]
-pub enum DeviceType {
+pub enum ConnectionType {
     Joystick = 0,
     Throttle = 1,
     VirtualDevice = 2,
+    RFCOMMChannel = 3,
 }
 
 pub(crate) type ConnectionStatusCallback =
-    unsafe extern "C" fn(DeviceType, bool);
+    unsafe extern "C" fn(ConnectionType, bool);
 
 /// The caller must call `CloseLib()` at the end with the pointer returned by
 /// `OpenLib()`, and `connection_status_callback` must remain a valid function

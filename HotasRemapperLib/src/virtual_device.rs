@@ -5,17 +5,19 @@ use swift_rs::SwiftArg;
 
 use crate::pointer_wrapper_swift;
 use crate::ConnectionStatusCallback;
-use crate::DeviceType;
+use crate::ConnectionType;
 
 pointer_wrapper_swift!(
-    VirtualDeviceConnectionStatusCallback,
+    ConnectionStatusCallbackWrapper,
     unsafe extern "C" fn(bool)
 );
 
-pointer_wrapper_swift!(RawPointer, *const c_char);
+pointer_wrapper_swift!(RawPointerWrapper, *const c_char);
 
-swift!(fn OpenBluetoothLib(callback: VirtualDeviceConnectionStatusCallback));
-swift!(fn SendDataViaBluetooth(buffer: RawPointer, length: u32));
+swift!(fn OpenBluetoothLib(
+    virtual_device_callback: ConnectionStatusCallbackWrapper,
+    rfcomm_channel_callback: ConnectionStatusCallbackWrapper));
+swift!(fn SendDataViaBluetooth(buffer: RawPointerWrapper, length: u32));
 swift!(fn CloseBluetoothLib());
 
 static mut CONNECTION_STATUS_CALLBACK: Option<ConnectionStatusCallback> = None;
@@ -34,9 +36,14 @@ impl VirtualDevice {
         };
         // Safe because we are just passing in a static function.
         unsafe {
-            OpenBluetoothLib(VirtualDeviceConnectionStatusCallback(
-                UpdateVirtualDeviceConnectionStatus,
-            ))
+            OpenBluetoothLib(
+                ConnectionStatusCallbackWrapper(
+                    UpdateVirtualDeviceConnectionStatus,
+                ),
+                ConnectionStatusCallbackWrapper(
+                    UpdateRFCOMMChannelConnectionStatus,
+                ),
+            )
         };
         Self {
             input_report: KeyboardInputReport::new(),
@@ -53,7 +60,7 @@ impl VirtualDevice {
         // Safe because the input report outlives this call.
         unsafe {
             SendDataViaBluetooth(
-                RawPointer(report.as_ptr()),
+                RawPointerWrapper(report.as_ptr()),
                 report.len() as u32,
             );
         }
@@ -74,7 +81,16 @@ pub unsafe extern "C" fn UpdateVirtualDeviceConnectionStatus(
     is_connected: bool,
 ) {
     if let Some(callback) = CONNECTION_STATUS_CALLBACK {
-        callback(DeviceType::VirtualDevice, is_connected);
+        callback(ConnectionType::VirtualDevice, is_connected);
+    }
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn UpdateRFCOMMChannelConnectionStatus(
+    is_connected: bool,
+) {
+    if let Some(callback) = CONNECTION_STATUS_CALLBACK {
+        callback(ConnectionType::RFCOMMChannel, is_connected);
     }
 }
 

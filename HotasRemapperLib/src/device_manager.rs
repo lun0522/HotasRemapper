@@ -21,7 +21,7 @@ use crate::input_reader::hid_manager::HandleDeviceEvent;
 use crate::input_remapper::InputRemapper;
 use crate::virtual_device::VirtualDevice;
 use crate::ConnectionStatusCallback;
-use crate::DeviceType;
+use crate::ConnectionType;
 
 pub(crate) struct DeviceManager {
     hid_manager: HIDManager,
@@ -163,11 +163,11 @@ impl HandleInputEvent for DeviceManager {
     }
 }
 
-impl From<HIDDeviceType> for DeviceType {
+impl From<HIDDeviceType> for ConnectionType {
     fn from(value: HIDDeviceType) -> Self {
         match value {
-            HIDDeviceType::Joystick => DeviceType::Joystick,
-            HIDDeviceType::Throttle => DeviceType::Throttle,
+            HIDDeviceType::Joystick => ConnectionType::Joystick,
+            HIDDeviceType::Throttle => ConnectionType::Throttle,
         }
     }
 }

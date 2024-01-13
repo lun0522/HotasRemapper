@@ -11,14 +11,15 @@
 #include <stdbool.h>
 #include <stdio.h>
 
-enum DeviceType {
+enum ConnectionType {
   kJoystick = 0,
   kThrottle = 1,
   kVirtualDevice = 2,
+  kRFCOMMChannel = 3,
 };
 
-void* OpenLib(void (*connection_status_callback)(enum DeviceType device_type,
-                                                 bool is_connected));
+void* OpenLib(void (*connection_status_callback)(
+    enum ConnectionType connection_type, bool is_connected));
 bool LoadInputRemapping(void* lib_handle, const char* input_remapping_ptr);
 void CloseLib(void* lib_handle);
 
