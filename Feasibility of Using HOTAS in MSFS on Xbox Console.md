@@ -1,46 +1,48 @@
 # Feasibility of Using HOTAS in MSFS on Xbox Consoles
 
-Do you want to use virtually any **joysticks** and **throttles** (maybe rudder pedals and other gaming devices as well) in **Microsoft Flight Simulator** (maybe other flight simulation games as well) on an Xbox console? This project is my personal experiment of:
+# Introduction
+
+Do you want to use virtually any **joysticks** and **throttles** (maybe rudder pedals and other gaming devices as well) in **Microsoft Flight Simulator** (maybe other flight simulation games as well if they have keyboard support) on an Xbox console? This project is my personal experiment of:
 
 1. Using a **Mac** to read input events from my joystick and throttle.
 2. Remapping those events to standard keyboard events.
-3. Sending them over Bluetooth to a **Raspberry Pi Zero 2W** board.
-4. Making the Raspberry Pi act as a USB keyboard that can be recognized by an Xbox console.
+3. Sending them over Bluetooth to a **Raspberry Pi Zero 2 W** board.
+4. Making the Raspberry Pi function as a USB keyboard that can be recognized by an Xbox console.
 
 Not all inputs can be easily remapped to keyboard events, but there might be workarounds. For example, the X- and Y-axis of the joystick couldn’t be remapped this way, but you can remap it to a thumbstick and feed the input events to Xbox via the Remote Play feature, which works on a Mac as well.
 
-This is a pretty low-cost way to make my non-Xbox-licensed HOTAS work with the Xbox console with a help of a Mac, with a bit of programming in Rust and Swift. In this article, I will share what I found during my journey of discovery, such as related hardware products and programming tutorials. You may follow a similar path to make your gaming devices work in more games on the console.
+This is a pretty low-cost way to make my non-Xbox-licensed HOTAS work with the Xbox console, requiring a bit of coding in Rust and Swift. In this article, I will share what I found during my journey of discovery, such as related hardware products and coding tutorials. You may follow a similar path to make your gaming devices work in more games on the console.
 
 # Motivation
 
-It’s a simple story. I got my Thrustmaster joystick and throttle first, which work perfectly in MSFS 2020 on a Windows PC. However, I don’t own a very powerful PC so I had to live with poor resolutions and frame rates. As a casual gamer who don’t even play >3 games, I don’t plan to invest $1k+ on a gaming PC. Then I saw reviews mentioning MSFS works pretty well in 4k resolution on Xbox series X, so I gave it a try. The game looks stunning with the new setup, but unfortunately, I found that it only supports licensed accessories (i.e. those having an Xbox button) while my HOTAS isn’t one of it, and I can’t simply install a certain driver on the console to make my stuff supported as I would do on a normal PC.
+It’s a simple story. I got my Thrustmaster joystick and throttle first, which work perfectly in MSFS 2020 on a Windows PC. However, I don’t own a very powerful PC so I had to live with poor resolutions and frame rates. As a casual gamer who don’t even play more than 3 games, I don’t plan to invest $1k+ on a gaming PC. Then I saw reviews mentioning MSFS works pretty well in 4k resolution on Xbox series X, so I gave it a try. The game looks stunning with the new setup, but unfortunately, I found that it only supports Xbox-licensed accessories (i.e. those having an Xbox button) while my HOTAS isn’t one of it, and I can’t simply install a certain driver on the console to make my stuff supported as I would do on a normal PC.
 
 I have limited options:
 
 1. Just play the game with an Xbox controller or keyboard & mouse. The user experience might be the worst.
-2. Use some software to allow my HOTAS to function as an Xbox controller. For example, [x360ce](https://www.x360ce.com) is capable of that on PC. However, a controller doesn’t have many buttons so I’ll probably not able to map all of my HOTAS buttons, and I’ll still need a way to send those events to the console, which isn’t easy at all.
+2. Use some software to allow my HOTAS to function as an Xbox controller. For example, [x360ce](https://www.x360ce.com) is capable of that on PC. However, a controller doesn’t have many buttons so I’ll probably not be able to map all of my HOTAS buttons, and I’ll still need a way to send those events to the console, which isn’t easy at all.
 3. Invest much more on a powerful gaming PC. Is it really worth it for casual gamers?
 4. Buy an Xbox-licensed HOTAS. There are very limited choices on the market, and I’d be happier with the one I have.
 5. Buy a third-party adapter that supports my HOTAS. There are a few adapters in the market, such as [Wingman XB](https://www.brookaccessory.com/detail/59327520/) and [Titan One](https://www.consoletuner.com/products/titan-one/), but they either explicitly don’t support my HOTAS, or don’t have any instructions/discussions on how to set it up in my case. Besides, they are not cheap.
-6. Build an “adapter” by myself. Even though the Xbox console doesn’t support most of those gaming devices, it does support keyboard and mouse. What if I can convert the events generated by my HOTAS to keyboard and/or mouse events and feed them to the console over USB?
+6. Build an “adapter” by myself. Even though the Xbox console doesn’t support most of those gaming devices, it does support mouse and keyboard. What if I can convert the events generated by my HOTAS to keyboard and/or mouse events and feed them to the console over USB?
 
-I have also noticed the Remote Play feature of the console. However, only standard gamepads are supported in that mode, meaning you still have to use Xbox controllers or other Xbox-licensed gamepads, so it doesn’t broaden my options.
+I’ve also learnt about the Xbox Remote Play feature, however, only standard gamepads are supported in that mode, meaning you have to use Xbox or third-party Xbox-licensed controllers. I’ve seen people requesting the Xbox team to support flight sticks in that mode as well, but I doubt even if they add the support, it would still require Xbox-licensed HOTAS. So, it doesn’t broaden my options.
 
-So, I began my journey in looking for a low-cost way to make my HOTAS work on the console. I planned to start looking for related apps, and write some code to fill the gaps if necessary.
+I began my journey in looking for a low-cost way to make my HOTAS work on the console. My plan was to look for related apps first, and write some code to fill the gaps if necessary.
 
 # Prior Art
 
-What if there are already some apps that can achieve what I want, and I just don’t need to write any code? I have been doing my research mostly on Mac, and I found these interesting apps:
+What if there are already some apps that can achieve what I want, and I just don’t need to write any code? I’ve been doing my research mostly on Mac, and I found these interesting apps:
 
 1. [Enjoyable](https://yukkurigames.com/enjoyable/). It is able to read input events from the HOTAS, identify which axis/button/hat switch they come from, and generate customizable mouse and keyboard events accordingly. The code is open-sourced. It work pretty nicely with my devices, but I can see a few problems:
     1. Not all inputs are supported, e.g. sliders.
-    2. Cannot remap an axis to multiple buttons, which is necessary for remapping the throttle axis to keyboard buttons.
-    3. Directly injects mouse and keyboard events to the operating system. This might be desired by some of their users but not me, since I actually want to route those to another device.
+    2. Cannot remap an axis to multiple buttons, which is critical for the throttle’s main axis.
+    3. Directly injects mouse and keyboard events to the operating system. This might be desired by some of their users but not me, since I actually want to redirect those to another device.
     4. The code was pretty old. I can no longer compile it with the latest MacOS and Xcode.
 2. [KeyPad](https://bluetooth-keyboard.com/keypad/). It enables user to use their Mac as the Bluetooth trackpad and keyboard for their iPhones, iPads and so on. It is pretty easy to use according to my testing, but few problems arose:
     1. It works well between my Mac and iPad, but it doesn’t seem to be able to connect to a Raspberry Pi, which is definitely not a major use case of it.
     2. The latency seems a bit high when typing to an iPad, which is okay for typing but less ideal for gaming.
-3. [Greenlight](https://github.com/unknownskl/greenlight). There is no Xbox app on Mac, so Remote Play isn’t officially supported here. This project brings that feature to Mac. It works pretty well despite that some issues on Github mentioned that the resolution is likely only 720p and there is no way to control it. It also maps some keyboard buttons to controller inputs ([mapping table](https://github.com/unknownskl/greenlight#keyboard-controls)). I found that even though there is no driver for my HOTAS on Mac, at least the joystick’s X- and Y-axis are actually working when I play MSFS through this app.
+3. [Greenlight](https://github.com/unknownskl/greenlight). There is no Xbox app on Mac, so Remote Play isn’t officially supported here. This project brings that feature to Mac. It works pretty well despite that [some issues on Github](https://github.com/unknownskl/greenlight/issues/361) mentioned that the resolution is likely only 720p and there is no way to control it. It also maps some keyboard buttons to controller inputs ([mapping table](https://github.com/unknownskl/greenlight#keyboard-controls)). I found that even though there is no driver for my HOTAS on Mac, at least the joystick’s X- and Y-axis are actually working when I play MSFS through this app.
 
 All the apps mentioned above are free to use. There are other paid apps with similar features, and there should be more similar apps on Windows. Note that Thrustmaster offers the [TARGET](https://ts.thrustmaster.com/download/accessories/pc/hotas/software/TARGET/TARGET_User_Manual_ENG.pdf) app that is capable of very complex remapping for HOTAS inputs, I haven’t tried that myself but I believe that is the toolbox desired by power users.
 
@@ -48,24 +50,123 @@ I haven’t found any app that directly satisfies all my needs, or several apps 
 
 # Project Deep Dive
 
+The approach I pursue is to remap joystick and throttle inputs to keyboard events, and then use a hardware middleman to deliver them to the Xbox console. The following sections will discuss how I achieved that.
+
 ## Choice of Hardware
 
 Besides the HOTAS and Xbox console, the major hardware components involved are:
 
-1. A computer, which reads HOTAS input events, remap them to keyboard events, and send them out wirelessly.
-2. An external device, which receives keyboard events wirelessly and forwards them to the console via USB.
+1. A computer, which reads HOTAS input events, remaps them to keyboard events, and sends them out wirelessly.
+2. A standalone device, which receives keyboard events wirelessly and forwards them to the console via USB. This is referred to as the ”virtual device” in this project.
 
-The computer can be a Mac/PC/Linux machine, as long as it can read USB inputs and send data wirelessly. I use a Mac in this project, but it shouldn’t be too hard to make the code cross-platform. In fact, there are more documentations and frameworks that can be used on Windows compared to MacOS.
+The computer can be a Mac/ Windows PC/Linux machine, as long as it can read USB inputs and send data wirelessly. I use a Mac in this project, but it shouldn’t be too hard to make the code cross-platform. In fact, there are more documentations and frameworks that can be used on Windows compared to MacOS.
 
-Regarding the external device, it must be able to function as a USB device (like a real mouse, keyboard or USB flash drive), while almost all computers can only act as the USB host. The [Raspberry Pi 2 W](https://www.raspberrypi.com/products/raspberry-pi-zero-2-w/) caught my eye because it has two micro USB ports (one of which supports USB OTG so it can be a USB host) and a mini HDMI port, and it only costs $15. The [Raspberry Pi Pico](https://www.raspberrypi.com/products/raspberry-pi-pico/) is even cheaper (only $4) and also supports USB host mode. I went with the former for the sake of the HDMI port but the latter may also just work.
+Regarding the virtual device, it must be able to function as a USB device (like a real mouse, keyboard or USB flash drive), while almost all computers can only act as the USB host. The [Raspberry Pi 2 W](https://www.raspberrypi.com/products/raspberry-pi-zero-2-w/) caught my eye because it has two micro USB ports (one of which supports USB OTG so it can be a USB host) and a mini HDMI port, and it only costs $15. The [Raspberry Pi Pico](https://www.raspberrypi.com/products/raspberry-pi-pico/) is even cheaper (only $4) and also supports the USB host mode. I went with the former for the sake of the HDMI port but the latter may also just work.
 
 ## Software Overview
 
 On the software side, let’s break down the task:
 
-1. Reading input events from the HOTAS using Apple’s [IOKit](https://developer.apple.com/documentation/iokit). Thanks for the [Enjoyable](https://github.com/shirosaki/enjoyable) project, I learnt that for free, although their code was written in Objective-C prior to 2016.
-2. Remapping those events to keyboard events. This part allows the most customization. I’m using [protobuf](https://protobuf.dev) to keep it flexible.
+1. Reading input events from the HOTAS using Apple’s [IOKit](https://developer.apple.com/documentation/iokit) framework.
+2. Remapping those events to keyboard events. This should allow for the deepest customization. I’m using [protobuf](https://protobuf.dev) to keep it flexible.
 3. Sending remapped events over Bluetooth using Apple’s [IOBluetooth](https://developer.apple.com/documentation/iobluetooth) framework.
-4. Running Raspberry Pi as a USB device, and making it forward whatever it receives over Bluetooth to the USB port. Luckily there are several tutorials online since other folks also tried to use Raspberry Pi boards as keyboards. We’ll need to touch a bit of the [HID standard](https://en.wikipedia.org/wiki/Human_interface_device).
+4. Running Raspberry Pi as a USB device, and making it forward whatever it receives over Bluetooth to the USB port. Luckily there are several tutorials online since many folks have been using [Linux USB Gadget API](https://www.kernel.org/doc/html/v4.17/driver-api/usb/gadget.html) to turn Raspberry Pis into keyboards. We’ll need to touch a bit of the [HID standard](https://en.wikipedia.org/wiki/Human_interface_device).
 
-I prefer to use modern cross-platform languages, although lots of APIs used in this project are platform dependent. Besides, since it will handle inputs for gaming, we do want to minimize the overhead. As a result, I implemented most of things in Rust, and also use Swift when writing the UI for Mac and when using Apple’s frameworks that don’t have good Rust wrappers yet.
+I prefer to use modern cross-platform languages, although lots of APIs used in this project are platform dependent. Besides, since it will handle inputs for gaming, I do want to minimize the overhead. As a result, I implemented most of things in Rust, and also used Swift when writing the UI for Mac and when using Apple’s frameworks that don’t have good Rust bindings.
+
+## Reading Input Events
+
+Thanks for the [Enjoyable](https://github.com/shirosaki/enjoyable) project, I learnt it for free to use IOKit to scan for HID devices and read input events from them. Their code was written in Objective-C prior to 2016 and is no longer compilable without major updates, so I began by extracting the input reading code into a [new project](https://github.com/lun0522/remapper), which has only less than 300 LOC.
+
+I realized that those IOKit APIs are just C APIs. They usually return a plain handle, such as [IOHIDDeviceRef](https://developer.apple.com/documentation/iokit/iohiddeviceref) and [IOHIDElementRef](https://developer.apple.com/documentation/iokit/iohidelementref), and they don’t use any Objective-C message sending mechanism at least in the interface. That means it could be very easy to rewrite that tiny project even in pure C. In fact, I did find such projects, e.g. [k810_fkeys_mac](https://github.com/exlee/k810_fkeys_mac). So, I began to wonder, can I modernize it with Rust? I’m really tired of the old fashioned Objective-C syntax.
+
+Having been extensively using Rust in my daily work, especially the [winapi](https://crates.io/crates/winapi) crate on Windows, I’ve long been desired to get a taste of it on MacOS as well. I found that the [io-kit-sys](https://crates.io/crates/io-kit-sys) crate wraps the IOKit quite well, including those HID related APIs. When it comes to [CoreFoundation](https://developer.apple.com/documentation/corefoundation) types, it depends on the [core-foundation](https://crates.io/crates/core-foundation) crate to provide bridges to [CFString](https://developer.apple.com/documentation/corefoundation/cfstring-rfh), [CFDictionary](https://developer.apple.com/documentation/corefoundation/cfdictionary-rum), etc. As a result, I didn’t have to import any functions or define any constants by myself, and the entire IOKit was just ready for use. Kudos to the authors! You can take a look at the [input_reader](https://github.com/lun0522/HotasRemapper/tree/main/HotasRemapperLib/src/input_reader) folder, which is built on the top of these crates.
+
+## Remapping Input Events
+
+My goal is to remap joystick and throttle inputs to keyboard key codes. This won’t work for all inputs, especially the axis, but we’ll see how far we can get. I grouped inputs into 4 categories:
+
+1. **Button**. This is the most straightforward one. When you press a button on the physical gaming device, the program presses a key on the virtual keyboard, and releases it when you release the button.
+2. **Toggle switch**. This is something you can flip on the physical device, and it may stay on for a long period of time. Besides, you may want to keep multiple toggle switches at the on position simultaneously. So, we definitely don’t want to keep sending key events whenever it is on. Instead, one switch will be remapped to two keys, one signaling on and one signaling off.
+3. **Hat switch**. You may have 4-way or 8-way hat switches. Likewise, they need to be remapped to 4 or 8 keys, where each key will get an on event when the hat reaches the corresponding location, and get an off event when the hat leaves that position. The hat location is indicated by the HID event value.
+4. **Axis**. Whether an axis can be quantized and remapped to keys depends on whether the game supports it. MSFS allows controlling the throttle by 11 keys, which stand for 0% (cut throttle), 10%, 20%, …, 100% (full throttle), so we can simply follow that. However, other axes, such as the joystick’s X- and Y-axis, cannot be remapped this way. I will talk about workarounds in the later section.
+
+These categories are defined in [this proto file](https://github.com/lun0522/HotasRemapper/blob/main/HotasRemapperLib/src/protos/input_remapping.proto), and [this text proto file](https://github.com/lun0522/HotasRemapper/blob/main/HotasRemapperLib/src/protos/input_remapping.txtpb) is an example of assigning HOTAS inputs to key codes. You could update the remapping by modifying and reloading the text proto file without re-compiling or re-running the whole program. The rest of the code lives in the [input_remapper](https://github.com/lun0522/HotasRemapper/tree/main/HotasRemapperLib/src/input_remapper) folder.
+
+## Sending Events over Bluetooth
+
+Unlike IOKit, IOBluetooth doesn’t seem to have any Rust bindings at all. I would have to use lot of Objective-C objects to operate the Bluetooth. There is also the [CoreBluetooth](https://developer.apple.com/documentation/corebluetooth) framework which only serves Bluetooth Low Energy (BLE) devices, and there are more bindings or high-level frameworks out there for Rust based on it. However, since the classic Bluetooth is meant for continuous connection and data streaming, I would say BLE is less suitable for my use case.
+
+Instead of writing the Rust bindings by myself, I decided to create a sub-project with Swift to interface with IOBluetooth. It exposes a small interface for the Rust code to call into. I won’t get into details of the Bluetooth protocol, e.g. what’s the difference between RFCOMM channels and L2CAP channels. We really don’t need to know that much to be able to send arbitrary binary data, which is implemented in [this file](https://github.com/lun0522/HotasRemapper/blob/main/HotasRemapperBt/Sources/HotasRemapperBt/BluetoothManager.swift).
+
+In order to enable the Rust code to call into Swift functions, I also have to pull in the [swift-rs](https://crates.io/crates/swift-rs) crate. That really simplifies things so I’m very grateful. Is it possible to just rewrite the Swift code in Rust and get rid of these bridges? I presume that is possible with the help of crates like [objc2](https://crates.io/crates/objc2). It is not my top priority, though.
+
+So, now we know what key events to send and how to send arbitrary binary data, but what should be the format of that data? How can the Xbox console understand it without installing any additional drivers? That will be covered by the next section.
+
+## Forwarding Events to USB Port
+
+Computers don’t need to install specialized drivers to use the **basic** functionalities of keyboards and mice, because those functionalities have been well standardized, and all mainstream operating systems support that standard, the USB HID standard. To make the Raspberry Pi function as a USB keyboard, we need to:
+
+1. Make the Raspberry Pi work in USB device mode, and advertise itself as a keyboard that communicates with the host using standard USB HID reports.
+2. Encode the key events that we want to send as standard USB HID input reports, so that the host can understand them without installing any additional drivers.
+
+I found the following tutorials especially easy to understand and follow:
+
+1. [Using RPi Zero as a Keyboard](https://www.rmedgar.com/blog/using-rpi-zero-as-keyboard-setup-and-device-definition/)
+2. [Composite USB Gadgets on the Raspberry Pi Zero](http://www.isticktoit.net/?p=1383)
+
+Some instructions may be outdated so you might want to cross-reference these two articles. One important thing to note is that you must have a micro USB cable that is capable of both charging and data transfer. I had been following the tutorials closely, but at the beginning I had a hard time getting my Raspberry Pi recognized as an input device by the computer. It turned out that none of the 5 cables I had could transfer data. Once you sort that out, you could already use simple commandline commands to send key events to the host device, which could be a computer or a console.
+
+These tutorials all mention some magic strings that describe what input does this USB device generate, such as “05010906a101050719e029e71500250175019508810275089506150026ff0019002aff008100c0”. You can use [this website](https://eleccelerator.com/usbdescreqparser/) to parse it, and the result looks like:
+
+```
+0x05, 0x01,        // Usage Page (Generic Desktop Ctrls)
+0x09, 0x06,        // Usage (Keyboard)
+0xA1, 0x01,        // Collection (Application)
+0x05, 0x07,        //   Usage Page (Kbrd/Keypad)
+0x19, 0xE0,        //   Usage Minimum (0xE0)
+0x29, 0xE7,        //   Usage Maximum (0xE7)
+0x15, 0x00,        //   Logical Minimum (0)
+0x25, 0x01,        //   Logical Maximum (1)
+0x75, 0x01,        //   Report Size (1)
+0x95, 0x08,        //   Report Count (8)
+0x81, 0x02,        //   Input (Data,Var,Abs,No Wrap,Linear,Preferred State,No Null Position)
+0x75, 0x08,        //   Report Size (8)
+0x95, 0x06,        //   Report Count (6)
+0x15, 0x00,        //   Logical Minimum (0)
+0x26, 0xFF, 0x00,  //   Logical Maximum (255)
+0x19, 0x00,        //   Usage Minimum (0x00)
+0x2A, 0xFF, 0x00,  //   Usage Maximum (0xFF)
+0x81, 0x00,        //   Input (Data,Array,Abs,No Wrap,Linear,Preferred State,No Null Position)
+0xC0,              // End Collection
+```
+
+This describes a keyboard whose input report consists of 7 bytes:
+
+1. The first byte encodes the states of the meta keys: Alt, Ctrl, Shift, etc.
+2. The other 6 bytes encodes 6 key events, meaning at each moment we can have at most 6 keys pressed simultaneously.
+
+Still confused? The author of that website also wrote this awesome article to tell you how to read and write such descriptors: [Tutorial about USB HID Report Descriptors](https://eleccelerator.com/tutorial-about-usb-hid-report-descriptors/). After reading that, you should be able to customize your virtual keyboard, and the USB host will still understand its input reports.
+
+There are other tools for generating such descriptors. For example:
+
+1. The [HID Descriptor Tool](https://usb.org/document-library/hid-descriptor-tool) released by usb.org in 2001. It is still usable but the UX is horrible.
+2. [hidtools](https://github.com/microsoft/hidtools) provided by Microsoft. You can describe what inputs you want in a specialized language, and it will perform optimizations to minimize the report size and output the descriptor. I like that idea but currently users cannot fully control the padding size, so you can’t even use that to generate a simple keyboard descriptor (see [this issue](https://github.com/microsoft/hidtools/issues/1)).
+
+So, my workflow is using (1) along with the descriptor parser website. After I got familiar with it, I could really just directly edit the descriptor string.
+
+Once the descriptor is finalized, it is easy for the computer to generate the input report accordingly, see `KeyboardInputReport` in [this file](https://github.com/lun0522/HotasRemapper/blob/main/HotasRemapperLib/src/virtual_device.rs). It is also fairly easy for the Raspberry Pi to open a Bluetooth socket, listen to connection from the computer, and write whatever data it receives to the USB port, see [this script](https://github.com/lun0522/HotasRemapper/blob/main/HotasRemapperRPi/run_service.py).
+
+## Axis Remapping
+
+This is the last difficult problem we need to solve. Despite that the throttle’s main axis can be quantized and remapped to a couple of keys, the joystick’s X- and Y-axis cannot be and shouldn’t be quantized and remapped the same way. But guess what? When I use [Greenlight](https://github.com/unknownskl/greenlight) for Remote Play on Mac, my joystick’s axes just work! I guess those axes are remapped to a thumbstick on a virtual gamepad controller. Does that mean I’ll have to live with the low resolution of Remote Play? No! When using Remote Play, the console is still outputting video through HDMI in 4k resolution.
+
+Now we finally have everything we need. To make it even better, can we remap the throttle’s main axis to another thumbstick’s axis so that it won’t need to be quantized? That’s a maybe. It is Greenlight that implicitly handles the remapping, so I’ll need to dig deeper to see how to change that config, but it feels promising. Can we avoid streaming the video at all since we won’t look at it? That’s also a maybe, and it also requires changing Greenlight.
+
+Another approach I tried was to make the Raspberry Pi function as an absolute mouse device by tweaking its HID descriptor, so that we can simply remap the joystick’s axes to the mouse’s axes. It turned out that a relative mouse can be recognized by the console, but an absolute mouse was unrecognized (although it works on a PC).
+
+# Conclusion
+
+This project proves that it is possible to remap most of HOTAS inputs to keyboard events, and feed those events to the console via a single board computer. The limitation mostly comes from axis remapping, but workarounds have been found and it at least satisfies the needs of a casual gamer. The only hardware cost is a Raspberry Pi Zero 2 W with supporting cables, and you may just reuse similar hardware from your other projects. That really opens the door to using more gaming devices on the console as long as they can be remapped in some way, and the game has keyboard support.
+
+I’ll be doing more experiments, e.g. try tweaking Greenlight to remap the throttle’s main axis to another thumbstick. Code-wise, there are also some stuff on my to-do list, such as rewriting the Bluetooth code in Rust and making the code cross-platform. Stay tuned for updates. Happy coding!
