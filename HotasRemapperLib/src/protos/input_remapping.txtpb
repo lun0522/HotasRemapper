@@ -37,6 +37,15 @@ throttle_inputs {
                 }
             }
         }
+        inputs {
+            key: 19
+            value {
+                toggle_switch_input {
+                    on_key_code: 6
+                    off_key_code: 7
+                }
+            }
+        }
     }
 }
 throttle_inputs {

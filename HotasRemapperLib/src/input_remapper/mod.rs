@@ -1,12 +1,14 @@
 mod axis_remapper;
 mod button_remapper;
 mod hat_switch_remapper;
+mod toggle_switch_input;
 
 use std::collections::HashMap;
 use std::convert::From;
 use std::convert::TryFrom;
 use std::ffi::c_char;
 use std::fmt::Display;
+use std::result::Result as StdResult;
 
 use anyhow::anyhow;
 use anyhow::bail;
@@ -14,9 +16,9 @@ use anyhow::Error;
 use anyhow::Result;
 use axis_remapper::AxisRemapper;
 use button_remapper::ButtonRemapper;
-use core::result::Result as CoreResult;
 use hat_switch_remapper::HatSwitchRemapper;
 use protobuf::text_format::parse_from_str as parse_proto_from_str;
+use toggle_switch_input::ToggleSwitchRemapper;
 
 use crate::input_reader::hid_device::DeviceType;
 use crate::input_reader::hid_device::InputEvent;
@@ -127,7 +129,9 @@ impl InputRemapper {
         Ok(if input.has_button_input() {
             Box::new(ButtonRemapper::try_from(input.button_input())?)
         } else if input.has_toggle_switch_input() {
-            unimplemented!()
+            Box::new(ToggleSwitchRemapper::try_from(
+                input.toggle_switch_input(),
+            )?)
         } else if input.has_hat_switch_input() {
             Box::new(HatSwitchRemapper::try_from(input.hat_switch_input())?)
         } else if input.has_axis_input() {
@@ -157,11 +161,11 @@ impl TryFrom<&str> for InputType {
     }
 }
 
-fn convert_key_code(key_code: i32) -> CoreResult<c_char, Error> {
+fn convert_key_code(key_code: i32) -> StdResult<c_char, Error> {
     c_char::try_from(key_code)
         .map_err(|e| anyhow!("Cannot convert {} to char: {}", key_code, e))
 }
 
-fn convert_key_codes(key_codes: &Vec<i32>) -> CoreResult<Vec<c_char>, Error> {
+fn convert_key_codes(key_codes: &[i32]) -> StdResult<Vec<c_char>, Error> {
     key_codes.iter().cloned().map(convert_key_code).collect()
 }
