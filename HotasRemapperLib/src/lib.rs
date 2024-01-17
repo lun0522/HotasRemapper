@@ -12,11 +12,9 @@ mod virtual_device;
 use std::ffi::c_char;
 use std::ffi::c_void;
 
-use anyhow::anyhow;
 use anyhow::bail;
 use anyhow::Result;
 use device_manager::DeviceManager;
-use utils::new_string_from_ptr;
 
 #[repr(C)]
 pub enum ConnectionType {
@@ -31,13 +29,15 @@ pub(crate) type ConnectionStatusCallback =
 
 /// The caller must call `CloseLib()` at the end with the pointer returned by
 /// `OpenLib()`, and `connection_status_callback` must remain a valid function
-/// pointer until then.
+/// pointer until then. Besides, `settings_ptr` must point to a UTF-8 encoded
+/// `Settings` message.
 #[no_mangle]
 pub unsafe extern "C" fn OpenLib(
+    settings_ptr: *const c_char,
     connection_status_callback: ConnectionStatusCallback,
 ) -> *mut c_void {
     println!("Opening {}", project_name());
-    match DeviceManager::new(connection_status_callback) {
+    match DeviceManager::new(settings_ptr, connection_status_callback) {
         Ok(mut manager) => {
             let manager_ptr =
                 &*manager.as_mut() as *const DeviceManager as *mut _;
@@ -87,9 +87,7 @@ unsafe fn load_input_remapping(
         Some(manager) => manager,
         None => bail!("manager_ptr is null"),
     };
-    let encoded_input_remapping = new_string_from_ptr(input_remapping_ptr)
-        .map_err(|e| anyhow!("Invalid string: {}", e))?;
-    manager.load_input_remapping(encoded_input_remapping.as_str())
+    manager.load_input_remapping(input_remapping_ptr)
 }
 
 pub fn project_name() -> String {

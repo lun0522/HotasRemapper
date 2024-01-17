@@ -1,0 +1,8 @@
+input_reader_settings {
+    joystick_device_name: "Joystick - HOTAS Warthog"
+    throttle_device_name: "Throttle - HOTAS Warthog"
+}
+virtual_device_settings {
+    host_mac_address: "b8-27-eb-c7-5b-1d"
+    rfcomm_channel_id: 1
+}

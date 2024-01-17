@@ -97,18 +97,6 @@ pub(crate) enum DeviceType {
     Throttle,
 }
 
-impl TryFrom<&DeviceProperty> for DeviceType {
-    type Error = &'static str;
-
-    fn try_from(property: &DeviceProperty) -> Result<Self, Self::Error> {
-        match property.device_name.as_str() {
-            "Joystick - HOTAS Warthog" => Ok(Self::Joystick),
-            "Throttle - HOTAS Warthog" => Ok(Self::Throttle),
-            _ => Err("Unknown type"),
-        }
-    }
-}
-
 #[derive(Debug)]
 pub(crate) struct RawInputEvent {
     pub device_ref: IOHIDDeviceRef,

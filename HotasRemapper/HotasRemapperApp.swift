@@ -12,8 +12,11 @@ private let listenEventSettings: String =
   "x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent"
 
 private class AppDelegate: NSObject, NSApplicationDelegate {
+  private static let cachedSettingsKey = "cachedSettings"
   private static let cachedInputRemappingKey = "cachedInputRemapping"
+
   let didGrantAccess: Bool
+
   private var libHandle: UnsafeMutableRawPointer? = nil
 
   override init() {
@@ -24,7 +27,12 @@ private class AppDelegate: NSObject, NSApplicationDelegate {
   func applicationDidFinishLaunching(_ notification: Notification) {
     NSApp.activate()
     if didGrantAccess {
-      libHandle = OpenLib(connectionStatusCallback)
+      let settings =
+        UserDefaults.standard.string(
+          forKey: AppDelegate.cachedSettingsKey) ?? ""
+      settings.withCString({ settingsPtr in
+        libHandle = OpenLib(settingsPtr, connectionStatusCallback)
+      })
       tryLoadCachedInputRemapping()
     } else {
       print("Not initializing due to lack of access")
@@ -36,6 +44,20 @@ private class AppDelegate: NSObject, NSApplicationDelegate {
   {
     CloseLib(libHandle)
     return NSApplication.TerminateReply.terminateNow
+  }
+
+  func loadSettings(from url: URL) {
+    let settings: String
+    do {
+      settings = try String(contentsOf: url, encoding: .utf8)
+    } catch {
+      print("Failed to read settings file:", error)
+      return
+    }
+    print("Persisting settings file content")
+    UserDefaults.standard.setValue(
+      settings,
+      forKey: AppDelegate.cachedSettingsKey)
   }
 
   func loadInputRemapping(from url: URL) {
@@ -51,7 +73,8 @@ private class AppDelegate: NSObject, NSApplicationDelegate {
     }) {
       print("Persisting input remapping file content")
       UserDefaults.standard.setValue(
-        inputRemapping, forKey: AppDelegate.cachedInputRemappingKey)
+        inputRemapping,
+        forKey: AppDelegate.cachedInputRemappingKey)
     }
   }
 
@@ -77,6 +100,9 @@ struct HotasRemapperApp: App {
     WindowGroup {
       ContentView(
         didGrantAccess: appDelegate.didGrantAccess,
+        loadSettings: { url in
+          appDelegate.loadSettings(from: url)
+        },
         loadInputRemapping: { url in
           appDelegate.loadInputRemapping(from: url)
         })

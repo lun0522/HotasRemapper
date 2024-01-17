@@ -29,7 +29,7 @@ macro_rules! pointer_wrapper_swift {
 pub(crate) unsafe fn new_string_from_ptr(ptr: *const c_char) -> Result<String> {
     match CStr::from_ptr(ptr).to_str() {
         Ok(string) => Ok(string.to_string()),
-        Err(e) => bail!("Not valid UTF-8: {}", e),
+        Err(e) => bail!(e),
     }
 }
 
@@ -39,7 +39,7 @@ pub(crate) unsafe fn new_cf_string_from_ptr(
 ) -> Result<CFString> {
     match CStr::from_ptr(ptr).to_str() {
         Ok(string) => Ok(CFString::from_static_string(string)),
-        Err(e) => bail!("Not valid UTF-8: {}", e),
+        Err(e) => bail!(e),
     }
 }
 

@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+message InputReaderSettings {
+  string joystick_device_name = 1;
+  string throttle_device_name = 2;
+}
+
+message InputRemapperSettings {}
+
+message VirtualDeviceSettings {
+  string host_mac_address = 1;
+  int32 rfcomm_channel_id = 2;
+}
+
+message Settings {
+  InputReaderSettings input_reader_settings = 1;
+  InputRemapperSettings input_remapper_settings = 2;
+  VirtualDeviceSettings virtual_device_settings = 3;
+}

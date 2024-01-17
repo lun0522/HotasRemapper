@@ -1,9 +1,13 @@
 use std::ffi::c_char;
 
+use anyhow::anyhow;
+use anyhow::Result;
 use swift_rs::swift;
+use swift_rs::SRString;
 use swift_rs::SwiftArg;
 
 use crate::pointer_wrapper_swift;
+use crate::settings::VirtualDeviceSettings;
 use crate::ConnectionStatusCallback;
 use crate::ConnectionType;
 
@@ -15,6 +19,8 @@ pointer_wrapper_swift!(
 pointer_wrapper_swift!(RawPointerWrapper, *const c_char);
 
 swift!(fn OpenBluetoothLib(
+    host_mac_address: SRString,
+    rfcomm_channel_id: u8,
     virtual_device_callback: ConnectionStatusCallbackWrapper,
     rfcomm_channel_callback: ConnectionStatusCallbackWrapper));
 swift!(fn SendDataViaBluetooth(buffer: RawPointerWrapper, length: u32));
@@ -29,7 +35,14 @@ pub(crate) struct VirtualDevice {
 }
 
 impl VirtualDevice {
-    pub fn new(connection_status_callback: ConnectionStatusCallback) -> Self {
+    pub fn new(
+        settings: &VirtualDeviceSettings,
+        connection_status_callback: ConnectionStatusCallback,
+    ) -> Result<Self> {
+        let rfcomm_channel_id = u8::try_from(settings.rfcomm_channel_id)
+            .map_err(|e| {
+                anyhow!("Cannot convert rfcomm_channel_id to u8: {}", e)
+            })?;
         // Safe because we assume single thread.
         unsafe {
             CONNECTION_STATUS_CALLBACK = Some(connection_status_callback)
@@ -37,6 +50,8 @@ impl VirtualDevice {
         // Safe because we are just passing in a static function.
         unsafe {
             OpenBluetoothLib(
+                settings.host_mac_address.as_str().into(),
+                rfcomm_channel_id,
                 ConnectionStatusCallbackWrapper(
                     UpdateVirtualDeviceConnectionStatus,
                 ),
@@ -45,9 +60,9 @@ impl VirtualDevice {
                 ),
             )
         };
-        Self {
+        Ok(Self {
             input_report: KeyboardInputReport::new(),
-        }
+        })
     }
 
     pub fn send_output_with_new_key_event(

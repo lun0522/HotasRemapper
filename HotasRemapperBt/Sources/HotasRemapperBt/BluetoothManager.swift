@@ -1,15 +1,21 @@
 import IOBluetooth
+import SwiftRs
 
 public typealias ConnectionStatusCallback = @convention(c) (Bool) -> Void
 
-// TODO: MAC address and RFCOMM channel id should be specified.
+/// The format of `hostMacAddress` must be "xx-xx-xx-xx-xx-xx".
 @_cdecl("OpenBluetoothLib")
 public func openBluetoothLib(
+  hostMacAddress: SRString,
+  rfcommChannelId: UInt8,
   virtualDeviceCallback: ConnectionStatusCallback,
   rfcommChannelCallback: ConnectionStatusCallback
 ) {
   BluetoothManager.shared.start(
-    with: virtualDeviceCallback, and: rfcommChannelCallback)
+    hostMacAddress: hostMacAddress,
+    rfcommChannelId: rfcommChannelId,
+    virtualDeviceCallback: virtualDeviceCallback,
+    rfcommChannelCallback: rfcommChannelCallback)
 }
 
 @_cdecl("SendDataViaBluetooth")
@@ -25,6 +31,8 @@ public func closeBluetoothLib() {
 class BluetoothManager: NSObject, RFCOMMChannelConnectionDelegate {
   static let shared = BluetoothManager()
 
+  private var hostMacAddress = ""
+  private var rfcommChannelId: UInt8 = 0
   private var virtualDeviceCallback: ConnectionStatusCallback?
   private var rfcommChannelCallback: ConnectionStatusCallback?
   private var isRunning = false
@@ -36,11 +44,15 @@ class BluetoothManager: NSObject, RFCOMMChannelConnectionDelegate {
   private var rfcommChannel: RFCOMMChannel?
 
   func start(
-    with virtualDeviceCallback: ConnectionStatusCallback,
-    and rfcommChannelCallback: ConnectionStatusCallback
+    hostMacAddress: SRString,
+    rfcommChannelId: UInt8,
+    virtualDeviceCallback: ConnectionStatusCallback,
+    rfcommChannelCallback: ConnectionStatusCallback
   ) {
     print("Starting Bluetooth manager")
     isRunning = true
+    self.hostMacAddress = hostMacAddress.toString()
+    self.rfcommChannelId = rfcommChannelId
     self.virtualDeviceCallback = virtualDeviceCallback
     self.rfcommChannelCallback = rfcommChannelCallback
     IOBluetoothDevice.register(
@@ -70,7 +82,7 @@ class BluetoothManager: NSObject, RFCOMMChannelConnectionDelegate {
     }
 
     let deviceInfo = toString(fromDevice);
-    if fromDevice.addressString != "b8-27-eb-c7-5b-1d" {
+    if fromDevice.addressString != hostMacAddress {
       print("Ignoring Bluetooth device:", deviceInfo)
       return
     }
@@ -84,7 +96,10 @@ class BluetoothManager: NSObject, RFCOMMChannelConnectionDelegate {
     fromDevice.register(
       forDisconnectNotification: self,
       selector: #selector(didDisconnect(notification:fromDevice:)))
-    rfcommChannel = RFCOMMChannel(device: fromDevice, delegate: self)
+    rfcommChannel = RFCOMMChannel(
+      device: fromDevice,
+      channelId: rfcommChannelId,
+      delegate: self)
   }
 
   @objc private func didDisconnect(
@@ -111,29 +126,30 @@ private protocol RFCOMMChannelConnectionDelegate {
 
 private class RFCOMMChannel: NSObject, IOBluetoothRFCOMMChannelDelegate {
   private let delegate: RFCOMMChannelConnectionDelegate
-  private var channel: IOBluetoothRFCOMMChannel? {
+  private var channel: IOBluetoothRFCOMMChannel?
+  private var isConnected = false {
     didSet {
-      delegate.rfcommChannelConnectionDidChange(isConnected: channel != nil)
+      delegate.rfcommChannelConnectionDidChange(isConnected: isConnected)
     }
   }
 
   init(
     device: IOBluetoothDevice,
+    channelId: UInt8,
     delegate: RFCOMMChannelConnectionDelegate
   ) {
     self.delegate = delegate
     super.init()
 
     print("Opening RFCOMM channel")
-    var rfcommChannel: IOBluetoothRFCOMMChannel?
     device.openRFCOMMChannelAsync(
-      &rfcommChannel,
-      withChannelID: 1,
+      &channel,
+      withChannelID: channelId,
       delegate: self)
   }
 
   func send(buffer: UnsafePointer<CChar>, length: Int32) {
-    if let channel = self.channel {
+    if isConnected, let channel = self.channel {
       let ret = channel.writeSync(
         UnsafeMutableRawPointer(mutating: buffer), length: UInt16(length))
       if ret != kIOReturnSuccess {
@@ -143,7 +159,7 @@ private class RFCOMMChannel: NSObject, IOBluetoothRFCOMMChannelDelegate {
   }
 
   func stop() {
-    if let channel = self.channel {
+    if isConnected, let channel = self.channel {
       print("Closing RFCOMM channel")
       channel.close()
     }
@@ -157,17 +173,15 @@ private class RFCOMMChannel: NSObject, IOBluetoothRFCOMMChannelDelegate {
   ) {
     if error == kIOReturnSuccess {
       print("Opened RFCOMM channel")
-      self.channel = channel
+      isConnected = true
     } else {
       print("Failed to open RFCOMM channel:", error)
     }
   }
 
   func rfcommChannelClosed(_ channel: IOBluetoothRFCOMMChannel!) {
-    if channel == self.channel {
-      print("RFCOMM channel closed")
-      self.channel = nil
-    }
+    print("RFCOMM channel closed")
+    isConnected = false
   }
 }
 

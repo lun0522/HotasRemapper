@@ -8,23 +8,41 @@
 import SwiftUI
 
 struct ContentView: View {
-  @State private var isImportingFile = false
+  @State private var isImportingSettingsFile = false
+  @State private var isImportingInputRemappingFile = false
   @State private var isJoystickConnected = false
   @State private var isThrottleConnected = false
   @State private var isVirtualDeviceConnected = false
   @State private var isRFCOMMChannelConnected = false
 
   let didGrantAccess: Bool
+  let loadSettings: (URL) -> Void
   let loadInputRemapping: (URL) -> Void
 
   var body: some View {
     VStack {
       if didGrantAccess {
-        Button("Load input remapping") {
-          isImportingFile = true
+        Button("Load settings (requires restart)") {
+          isImportingSettingsFile = true
         }
         .fileImporter(
-          isPresented: $isImportingFile,
+          isPresented: $isImportingSettingsFile,
+          allowedContentTypes: [.item],
+          onCompletion: { result in
+            switch result {
+              case .success(let url):
+                loadSettings(url)
+              case .failure(let error):
+                print(
+                  "Failed to select settings file",
+                  error.localizedDescription)
+            }
+          })
+        Button("Load input remapping") {
+          isImportingInputRemappingFile = true
+        }
+        .fileImporter(
+          isPresented: $isImportingInputRemappingFile,
           allowedContentTypes: [.item],
           onCompletion: { result in
             switch result {
@@ -70,7 +88,10 @@ struct ContentView: View {
 }
 
 #Preview {
-  ContentView(didGrantAccess: true, loadInputRemapping: { _ in })
+  ContentView(
+    didGrantAccess: true,
+    loadSettings: { _ in },
+    loadInputRemapping: { _ in })
 }
 
 private func toString(_ value: Bool) -> String {

@@ -1,16 +1,19 @@
 use std::collections::HashMap;
 use std::convert::From;
-use std::convert::TryFrom;
+use std::ffi::c_char;
 use std::ffi::c_void;
 use std::marker::PhantomPinned;
 use std::pin::Pin;
 
+use anyhow::anyhow;
+use anyhow::bail;
 use anyhow::Result;
 use io_kit_sys::hid::base::IOHIDDeviceCallback;
 use io_kit_sys::hid::base::IOHIDDeviceRef;
 use io_kit_sys::hid::base::IOHIDValueCallback;
 use io_kit_sys::hid::base::IOHIDValueRef;
 use io_kit_sys::ret::IOReturn;
+use protobuf::text_format::parse_from_str as parse_proto_from_str;
 
 use crate::input_reader::hid_device::DeviceProperty;
 use crate::input_reader::hid_device::DeviceType as HIDDeviceType;
@@ -19,6 +22,8 @@ use crate::input_reader::hid_device::HandleInputEvent;
 use crate::input_reader::hid_manager::HIDManager;
 use crate::input_reader::hid_manager::HandleDeviceEvent;
 use crate::input_remapper::InputRemapper;
+use crate::settings::Settings;
+use crate::utils::new_string_from_ptr;
 use crate::virtual_device::VirtualDevice;
 use crate::ConnectionStatusCallback;
 use crate::ConnectionType;
@@ -35,13 +40,28 @@ pub(crate) struct DeviceManager {
 }
 
 impl DeviceManager {
-    pub fn new(
+    /// `settings_ptr` must point to a UTF-8 encoded `Settings` message.
+    pub unsafe fn new(
+        settings_ptr: *const c_char,
         connection_status_callback: ConnectionStatusCallback,
     ) -> Result<Pin<Box<Self>>> {
+        let settings = match load_settings(settings_ptr) {
+            Ok(settings) => settings,
+            Err(e) => {
+                println!("Failed to load settings: {:?}", e);
+                println!("Please reload settings and restart!");
+                Settings::new()
+            }
+        };
+        println!("Initializing with settings: {}", dump_settings(&settings));
+
         let mut manager = Box::pin(Self {
-            hid_manager: HIDManager::new()?,
+            hid_manager: HIDManager::new(&settings.input_reader_settings)?,
             hid_devices: Default::default(),
-            virtual_deivce: VirtualDevice::new(connection_status_callback),
+            virtual_deivce: VirtualDevice::new(
+                &settings.virtual_device_settings,
+                connection_status_callback,
+            )?,
             input_remapper: InputRemapper::new(),
             connection_status_callback,
             _pinned_marker: PhantomPinned,
@@ -59,12 +79,16 @@ impl DeviceManager {
         Ok(manager)
     }
 
-    pub fn load_input_remapping(
+    /// `input_remapping_ptr` must point to a UTF-8 encoded `InputRemapping`
+    /// message.
+    pub unsafe fn load_input_remapping(
         &mut self,
-        encoded_input_remapping: &str,
+        input_remapping_ptr: *const c_char,
     ) -> Result<()> {
+        let encoded_input_remapping = new_string_from_ptr(input_remapping_ptr)
+            .map_err(|e| anyhow!("Invalid input_remapping_ptr: {}", e))?;
         self.input_remapper
-            .load_input_remapping(encoded_input_remapping)
+            .load_input_remapping(&encoded_input_remapping)
     }
 
     fn report_connection_status(
@@ -81,8 +105,9 @@ impl DeviceManager {
 
     fn handle_device_matched(&mut self, device_ref: IOHIDDeviceRef) {
         let device_property = DeviceProperty::from_device(device_ref);
-        if let Some(device_type) =
-            HIDDeviceType::try_from(&device_property).ok()
+        if let Some(device_type) = self
+            .hid_manager
+            .try_get_device_type(&device_property.device_name)
         {
             // Open a new device only if we haven't found any devices of the
             // same type.
@@ -172,6 +197,17 @@ impl From<HIDDeviceType> for ConnectionType {
     }
 }
 
+/// `settings_ptr` must point to a UTF-8 encoded `Settings` message.
+unsafe fn load_settings(settings_ptr: *const c_char) -> Result<Settings> {
+    let encoded_settings = new_string_from_ptr(settings_ptr)
+        .map_err(|e| anyhow!("Invalid settings_ptr: {}", e))?;
+    if encoded_settings.is_empty() {
+        bail!("No settings provided!");
+    }
+    parse_proto_from_str::<Settings>(&encoded_settings)
+        .map_err(|e| anyhow!("Failed to parse as text proto: {}", e))
+}
+
 extern "C" fn handle_device_matched(
     context: *mut c_void,
     _result: IOReturn,
@@ -206,4 +242,19 @@ extern "C" fn handle_input_received(
     if let Some(manager) = unsafe { (context as *mut DeviceManager).as_mut() } {
         manager.handle_input_received(value);
     }
+}
+
+fn dump_settings(settings: &Settings) -> String {
+    format!(
+        "
+\tJoystick device name: {:?}
+\tThrottle device name: {:?}
+\tHost MAC address: {:?}
+\tRFCOMM channel ID: {}
+",
+        settings.input_reader_settings.joystick_device_name,
+        settings.input_reader_settings.throttle_device_name,
+        settings.virtual_device_settings.host_mac_address,
+        settings.virtual_device_settings.rfcomm_channel_id
+    )
 }

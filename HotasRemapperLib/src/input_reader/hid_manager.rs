@@ -28,6 +28,8 @@ use io_kit_sys::hid::usage_tables::kHIDPage_GenericDesktop;
 use io_kit_sys::hid::usage_tables::kHIDUsage_GD_Joystick;
 use io_kit_sys::ret::kIOReturnSuccess;
 
+use super::hid_device::DeviceType;
+use crate::settings::InputReaderSettings;
 use crate::utils::new_cf_string_from_ptr;
 
 /// A trait to provide what we need for calling
@@ -41,10 +43,12 @@ pub(crate) trait HandleDeviceEvent {
 /// A struct wrapping `IOHIDManagerRef` from IOKit.
 pub(crate) struct HIDManager {
     manager_ref: IOHIDManagerRef,
+    joystick_device_name: String,
+    throttle_device_name: String,
 }
 
 impl HIDManager {
-    pub fn new() -> Result<Self> {
+    pub fn new(settings: &InputReaderSettings) -> Result<Self> {
         println!("Creating HID manager");
         let manager_ref = create_manager();
         // Safe because the manager will be alive until we call `CFRelease()`.
@@ -56,7 +60,11 @@ impl HIDManager {
             }
             start_manager(&manager_ref);
         }
-        Ok(Self { manager_ref })
+        Ok(Self {
+            manager_ref,
+            joystick_device_name: settings.joystick_device_name.clone(),
+            throttle_device_name: settings.throttle_device_name.clone(),
+        })
     }
 
     /// Safety: the caller must ensure the pinned handler outlives `HIDManager`.
@@ -65,6 +73,18 @@ impl HIDManager {
         pinned_handler_ptr: *mut T,
     ) {
         set_device_callbacks::<T>(&self.manager_ref, pinned_handler_ptr);
+    }
+
+    pub fn try_get_device_type(&self, device_name: &str) -> Option<DeviceType> {
+        match device_name {
+            _ if device_name == self.joystick_device_name => {
+                Some(DeviceType::Joystick)
+            }
+            _ if device_name == self.throttle_device_name => {
+                Some(DeviceType::Throttle)
+            }
+            _ => None,
+        }
     }
 }
 
