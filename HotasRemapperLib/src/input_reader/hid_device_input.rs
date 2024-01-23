@@ -50,6 +50,7 @@ pub(crate) struct DeviceInput {
 impl DeviceInput {
     /// Safety: the caller must ensure the element is alive.
     #[allow(non_upper_case_globals)]
+    #[deny(unsafe_op_in_unsafe_fn)]
     pub unsafe fn try_new(
         element: IOHIDElementRef,
         index_tracker: &mut HashMap<InputType, i32>,
@@ -64,9 +65,14 @@ impl DeviceInput {
             }
         };
 
-        let identifier = IOHIDElementGetCookie(element);
-        let element_type = IOHIDElementGetType(element);
-        let usage = IOHIDElementGetUsage(element);
+        // Safe because the caller guarantees `element` is valid.
+        let (identifier, element_type, usage) = unsafe {
+            (
+                IOHIDElementGetCookie(element),
+                IOHIDElementGetType(element),
+                IOHIDElementGetUsage(element),
+            )
+        };
         match element_type {
             kIOHIDElementTypeInput_Button => {
                 return Some((identifier, new_input(InputType::Button)))

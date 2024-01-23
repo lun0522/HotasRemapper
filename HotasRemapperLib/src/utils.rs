@@ -43,18 +43,24 @@ pub(crate) unsafe fn new_cf_string_from_ptr(
     }
 }
 
-/// Safety: see safety comments of `CStr::from_ptr()`. Assumes UTF-8 encoding.
+/// Safety: `string_ref` must be valid.
+#[deny(unsafe_op_in_unsafe_fn)]
 pub(crate) unsafe fn new_string_from_cf_string(
     string_ref: CFStringRef,
 ) -> Result<String> {
-    let buffer_size = CFStringGetLength(string_ref) + 1;
+    // Safe because the caller guarantees `string_ref` is valid.
+    let buffer_size = unsafe { CFStringGetLength(string_ref) } + 1;
     let mut buffer: Vec<u8> = vec![0; buffer_size as usize];
-    if CFStringGetCString(
-        string_ref,
-        buffer.as_mut_ptr() as *mut i8,
-        buffer.len() as isize,
-        kCFStringEncodingUTF8,
-    ) == 0
+    // Safe because the caller guarantees `string_ref` is valid, and `buffer`
+    // outlives this function call.
+    if unsafe {
+        CFStringGetCString(
+            string_ref,
+            buffer.as_mut_ptr() as *mut i8,
+            buffer.len() as isize,
+            kCFStringEncodingUTF8,
+        )
+    } == 0
     {
         bail!("CFStringGetCString() failed");
     }

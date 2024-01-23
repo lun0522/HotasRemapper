@@ -105,10 +105,12 @@ fn create_manager() -> IOHIDManagerRef {
 }
 
 /// The caller must ensure `manager_ref` is still alive.
+#[deny(unsafe_op_in_unsafe_fn)]
 unsafe fn set_device_matching_criteria(manager_ref: &IOHIDManagerRef) {
     let new_kv_pair = |key: *const c_char, value: u32| {
         (
-            new_cf_string_from_ptr(key).unwrap(),
+            // Safe because we will only use static strings.
+            unsafe { new_cf_string_from_ptr(key).unwrap() },
             CFNumber::from(value as i32),
         )
     };
@@ -116,10 +118,15 @@ unsafe fn set_device_matching_criteria(manager_ref: &IOHIDManagerRef) {
         new_kv_pair(kIOHIDDeviceUsagePageKey, kHIDPage_GenericDesktop),
         new_kv_pair(kIOHIDDeviceUsageKey, kHIDUsage_GD_Joystick),
     ]);
-    IOHIDManagerSetDeviceMatchingMultiple(
-        *manager_ref,
-        CFArray::from_CFTypes(&[criteria.as_CFType()]).as_concrete_TypeRef(),
-    );
+    // Safe because the caller guarantees `manager_ref` is valid, and `criteria`
+    // outlives this function call.
+    unsafe {
+        IOHIDManagerSetDeviceMatchingMultiple(
+            *manager_ref,
+            CFArray::from_CFTypes(&[criteria.as_CFType()])
+                .as_concrete_TypeRef(),
+        )
+    };
 }
 
 /// The caller must ensure `manager_ref` is still alive.

@@ -181,23 +181,31 @@ impl HIDDevice {
 }
 
 /// Safety: the caller must ensure the device is alive.
+#[deny(unsafe_op_in_unsafe_fn)]
 unsafe fn build_input_map(
     device: IOHIDDeviceRef,
     device_type: DeviceType,
 ) -> HashMap<IOHIDElementCookie, DeviceInput> {
     let mut input_map = HashMap::<IOHIDElementCookie, DeviceInput>::new();
     let mut index_tracker = HashMap::<InputType, i32>::new();
-    let elements = IOHIDDeviceCopyMatchingElements(
-        device,
-        null_mut(),
-        kIOHIDOptionsTypeNone,
-    );
-    for i in 0..CFArrayGetCount(elements) {
-        let element = CFArrayGetValueAtIndex(elements, i) as IOHIDElementRef;
-        if let Some((identifier, device_input)) =
-            DeviceInput::try_new(element, &mut index_tracker)
-        {
-            input_map.insert(identifier, device_input);
+    // Safe because the caller guarantees `device` is valid.
+    let elements = unsafe {
+        IOHIDDeviceCopyMatchingElements(
+            device,
+            null_mut(),
+            kIOHIDOptionsTypeNone,
+        )
+    };
+    // Safe because the system guarantees `elements` is valid.
+    unsafe {
+        for i in 0..CFArrayGetCount(elements) {
+            let element =
+                CFArrayGetValueAtIndex(elements, i) as IOHIDElementRef;
+            if let Some((identifier, device_input)) =
+                DeviceInput::try_new(element, &mut index_tracker)
+            {
+                input_map.insert(identifier, device_input);
+            }
         }
     }
     println!("Found {:?} inputs: {:?}", device_type, index_tracker);

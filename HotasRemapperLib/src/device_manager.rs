@@ -41,11 +41,13 @@ pub(crate) struct DeviceManager {
 
 impl DeviceManager {
     /// `settings_ptr` must point to a UTF-8 encoded `Settings` message.
+    #[deny(unsafe_op_in_unsafe_fn)]
     pub unsafe fn new(
         settings_ptr: *const c_char,
         connection_status_callback: ConnectionStatusCallback,
     ) -> Result<Pin<Box<Self>>> {
-        let settings = match load_settings(settings_ptr) {
+        // Safe because the caller guarantees `settings_ptr` is valid.
+        let settings = match unsafe { load_settings(settings_ptr) } {
             Ok(settings) => settings,
             Err(e) => {
                 println!("Failed to load settings: {:?}", e);
