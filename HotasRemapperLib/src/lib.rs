@@ -3,7 +3,6 @@
 
 include!(concat!(env!("OUT_DIR"), "/protos/mod.rs"));
 
-mod bluetooth_manager;
 mod device_manager;
 mod input_reader;
 mod input_remapper;
