@@ -1,3 +1,4 @@
+mod bluetooth_device;
 mod bluetooth_manager;
 
 use std::ffi::c_char;
@@ -5,8 +6,8 @@ use std::pin::Pin;
 
 use anyhow::anyhow;
 use anyhow::Result;
+use bluetooth_device::DeviceInfo;
 use bluetooth_manager::BluetoothManager;
-use bluetooth_manager::DeviceInfo;
 use bluetooth_manager::SelectDevice;
 use swift_rs::swift;
 use swift_rs::SRString;

@@ -1,13 +1,8 @@
-use std::ffi::c_char;
 use std::ffi::c_void;
-use std::fmt::Display;
-use std::fmt::Formatter;
-use std::fmt::Result as FmtResult;
 use std::marker::PhantomPinned;
 use std::pin::Pin;
 use std::sync::Once;
 
-use anyhow::Result;
 use objc::class;
 use objc::declare::ClassDecl;
 use objc::msg_send;
@@ -18,7 +13,9 @@ use objc::runtime::Sel;
 use objc::sel;
 use objc::sel_impl;
 
-use crate::utils::new_string_from_ptr;
+use super::bluetooth_device::BluetoothDevice;
+use super::bluetooth_device::DeviceEventHandler;
+use super::bluetooth_device::DeviceInfo;
 
 type PinnedPointer = *mut c_void;
 
@@ -28,45 +25,10 @@ pub(crate) trait SelectDevice {
     fn is_target_device(&self, device_info: &DeviceInfo) -> bool;
 }
 
-pub(crate) struct DeviceInfo {
-    pub name: String,
-    pub mac_address: String,
-}
-
-impl DeviceInfo {
-    pub fn new(device: *const Object) -> Self {
-        Self {
-            name: unsafe { Self::get_name(device) },
-            mac_address: unsafe { Self::get_mac_address(device) },
-        }
-    }
-
-    unsafe fn get_name(device: *const Object) -> String {
-        let name: *const Object = unsafe { msg_send![device, name] };
-        unsafe { new_string_from_nsstring(name) }
-            .unwrap_or("Unknown name".to_string())
-    }
-
-    unsafe fn get_mac_address(device: *const Object) -> String {
-        let mac_address: *const Object =
-            unsafe { msg_send![device, addressString] };
-        unsafe { new_string_from_nsstring(mac_address) }
-            .unwrap_or("Unknown MAC address".to_string())
-    }
-}
-
-impl Display for DeviceInfo {
-    fn fmt(&self, formatter: &mut Formatter) -> FmtResult {
-        formatter.write_fmt(format_args!(
-            "{{device name: {:?}, MAC address: {}}}",
-            self.name, self.mac_address
-        ))
-    }
-}
-
 pub(crate) struct BluetoothManager<T: SelectDevice> {
     this: StrongPtr,
     device_selector: T,
+    target_device: Option<BluetoothDevice>,
     // We want to make sure the `BluetoothManager` doesn't get moved, so
     // callback functions can rely on an everlasting pointer to it.
     _pinned_marker: PhantomPinned,
@@ -79,6 +41,7 @@ impl<T: SelectDevice> BluetoothManager<T> {
         let mut manager = Box::pin(Self {
             this: unsafe { new_object(class!(BluetoothManager)) },
             device_selector,
+            target_device: None,
             _pinned_marker: PhantomPinned,
         });
         unsafe { manager.as_mut().store_self_pointer() };
@@ -96,16 +59,26 @@ impl<T: SelectDevice> BluetoothManager<T> {
                 on_device_connected_selector(),
                 on_device_connected::<T> as extern "C" fn(&Object, _, _, _),
             );
+            decl.add_method(
+                on_device_disconnected_selector(),
+                on_target_device_disconnected::<T>
+                    as extern "C" fn(&Object, _, _, _),
+            );
         }
         decl.register();
     }
 
     unsafe fn store_self_pointer(self: Pin<&mut Self>) {
-        let self_ptr = &*self as *const BluetoothManager<T> as *mut _;
+        let self_ptr = &*self as *const Self as *mut _;
         self.this
             .as_mut()
             .unwrap()
             .set_ivar::<PinnedPointer>(PINNED_POINTER_VAR, self_ptr);
+    }
+
+    unsafe fn get_pinned_manager(this: &Object) -> Option<&mut Self> {
+        let self_ptr = this.get_ivar::<PinnedPointer>(PINNED_POINTER_VAR);
+        (*self_ptr as *mut Self).as_mut()
     }
 
     unsafe fn register_for_device_connection_notifications(&self) {
@@ -122,6 +95,20 @@ impl<T: SelectDevice> BluetoothManager<T> {
             return;
         }
         println!("Found target Bluetooth device: {}", device_info);
+        if self.target_device.is_none() {
+            self.target_device = Some(BluetoothDevice::new(
+                device,
+                DeviceEventHandler {
+                    handler_ptr: *self.this,
+                    on_device_disconnected: on_device_disconnected_selector(),
+                },
+            ));
+        }
+    }
+
+    fn handle_target_device_disconnected(&mut self) {
+        println!("Target Bluetooth device disconnected");
+        self.target_device = None;
     }
 }
 
@@ -131,14 +118,9 @@ unsafe fn new_object(obj_class: &Class) -> StrongPtr {
     StrongPtr::new(obj)
 }
 
-unsafe fn new_string_from_nsstring(nsstring: *const Object) -> Result<String> {
-    let string_ptr: *const c_char = msg_send![nsstring, UTF8String];
-    unsafe { new_string_from_ptr(string_ptr) }
-}
-
 #[inline]
 fn on_device_connected_selector() -> Sel {
-    sel!(notification:fromDevice:)
+    sel!(didConnectWithNotification:fromDevice:)
 }
 
 extern "C" fn on_device_connected<T: SelectDevice>(
@@ -147,12 +129,29 @@ extern "C" fn on_device_connected<T: SelectDevice>(
     _notification: *const Object,
     device: *const Object,
 ) {
-    let manager_ptr =
-        unsafe { this.get_ivar::<PinnedPointer>(PINNED_POINTER_VAR) };
-    match unsafe { (*manager_ptr as *mut BluetoothManager<T>).as_mut() } {
+    match unsafe { BluetoothManager::<T>::get_pinned_manager(this) } {
         Some(manager) => manager.handle_device_connected(device),
+        None => {
+            println!("Cannot handle device connected because manager is None!")
+        }
+    }
+}
+
+#[inline]
+fn on_device_disconnected_selector() -> Sel {
+    sel!(didDisconnectWithNotification:fromDevice:)
+}
+
+extern "C" fn on_target_device_disconnected<T: SelectDevice>(
+    this: &Object,
+    _selector: Sel,
+    _notification: *const Object,
+    _device: *const Object,
+) {
+    match unsafe { BluetoothManager::<T>::get_pinned_manager(this) } {
+        Some(manager) => manager.handle_target_device_disconnected(),
         None => println!(
-            "Cannot handle device connected because manager_ptr is null!"
+            "Cannot handle target device disconnected because manager is None!"
         ),
     }
 }
