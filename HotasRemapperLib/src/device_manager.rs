@@ -251,12 +251,12 @@ fn dump_settings(settings: &Settings) -> String {
         "
 \tJoystick device name: {:?}
 \tThrottle device name: {:?}
-\tHost MAC address: {}
+\tVirtual device MAC address: {}
 \tRFCOMM channel ID: {}
 ",
         settings.input_reader_settings.joystick_device_name,
         settings.input_reader_settings.throttle_device_name,
-        settings.virtual_device_settings.host_mac_address,
+        settings.virtual_device_settings.mac_address,
         settings.virtual_device_settings.rfcomm_channel_id
     )
 }

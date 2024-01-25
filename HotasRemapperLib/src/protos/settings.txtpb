@@ -3,6 +3,6 @@ input_reader_settings {
     throttle_device_name: "Throttle - HOTAS Warthog"
 }
 virtual_device_settings {
-    host_mac_address: "b8-27-eb-c7-5b-1d"
+    mac_address: "b8-27-eb-c7-5b-1d"
     rfcomm_channel_id: 1
 }

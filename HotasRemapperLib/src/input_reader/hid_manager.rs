@@ -49,7 +49,6 @@ pub(crate) struct HIDManager {
 
 impl HIDManager {
     pub fn new(settings: &InputReaderSettings) -> Result<Self> {
-        println!("Creating HID manager");
         let manager_ref = create_manager();
         // Safe because the manager will be alive until we call `CFRelease()`.
         unsafe {
@@ -90,7 +89,6 @@ impl HIDManager {
 
 impl Drop for HIDManager {
     fn drop(&mut self) {
-        println!("Dropping HID manager");
         // Safe because we haven't called `CFRelease()` until this point.
         unsafe {
             stop_manager(&self.manager_ref);

@@ -9,22 +9,6 @@ use core_foundation::string::CFStringGetCString;
 use core_foundation::string::CFStringGetLength;
 use core_foundation::string::CFStringRef;
 
-/// Defines a new struct that wraps a single normal pointer or function pointer.
-#[macro_export]
-macro_rules! pointer_wrapper_swift {
-    ($i:ident, $t:ty) => {
-        pub(crate) struct $i(pub $t);
-
-        impl<'a> SwiftArg<'a> for $i {
-            type ArgType = $t;
-
-            unsafe fn as_arg(&'a self) -> Self::ArgType {
-                self.0
-            }
-        }
-    };
-}
-
 /// Safety: see safety comments of `CStr::from_ptr()`.
 pub(crate) unsafe fn new_string_from_ptr(ptr: *const c_char) -> Result<String> {
     match CStr::from_ptr(ptr).to_str() {

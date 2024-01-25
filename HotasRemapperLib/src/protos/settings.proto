@@ -8,7 +8,7 @@ message InputReaderSettings {
 message InputRemapperSettings {}
 
 message VirtualDeviceSettings {
-  string host_mac_address = 1;
+  string mac_address = 1;
   int32 rfcomm_channel_id = 2;
 }
 
