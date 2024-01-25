@@ -31,7 +31,6 @@
 /* End PBXBuildRule section */
 
 /* Begin PBXFileReference section */
-		0423EC4B2B41DA7D00A04E8F /* HotasRemapperBt */ = {isa = PBXFileReference; lastKnownFileType = wrapper; name = HotasRemapperBt; path = ../HotasRemapperBt; sourceTree = "<group>"; };
 		CA0097CEC5BDEE664463BF8F /* libHotasRemapperLib.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libHotasRemapperLib.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		CA01408E4ACD7B20BD6545F4 /* HotasRemapperLib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = HotasRemapperLib; sourceTree = BUILT_PRODUCTS_DIR; };
 		CAF9F0CCD9EB3EF4668187A5 /* Cargo.toml */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = Cargo.toml; sourceTree = "<group>"; };
@@ -41,7 +40,6 @@
 		CAF0F0CCD9EBD65BC3C892A8 = {
 			isa = PBXGroup;
 			children = (
-				0423EC4B2B41DA7D00A04E8F /* HotasRemapperBt */,
 				CAF9F0CCD9EB3EF4668187A5 /* Cargo.toml */,
 				CAF1F0CCD9EB22869D176AE5 /* Products */,
 				CAF2F0CCD9EB98AF0B5890DB /* Frameworks */,

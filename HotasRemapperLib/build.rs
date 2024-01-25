@@ -1,4 +1,3 @@
-use swift_rs::SwiftLinker;
 use protobuf_codegen::Codegen as ProtobufCodeGen;
 
 fn main() {
@@ -8,7 +7,4 @@ fn main() {
         .input("src/protos/input_remapping.proto")
         .input("src/protos/settings.proto")
         .run_from_script();
-    SwiftLinker::new("14.2")
-        .with_package("HotasRemapperBt", "../HotasRemapperBt")
-        .link();
 }
