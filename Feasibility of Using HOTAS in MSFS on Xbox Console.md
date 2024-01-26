@@ -1,5 +1,7 @@
 # Feasibility of Using HOTAS in MSFS on Xbox Consoles
 
+Document written on 2024-01-13 (See new changes in the Updates section)
+
 # Introduction
 
 Do you want to use virtually any **joysticks** and **throttles** (maybe rudder pedals and other gaming devices as well) in **Microsoft Flight Simulator** (maybe other flight simulation games as well if they have keyboard support) on an Xbox console? This project is my personal experiment of:
@@ -97,7 +99,7 @@ These categories are defined in [this proto file](https://github.com/lun0522/Hot
 
 Unlike IOKit, IOBluetooth doesn’t seem to have any Rust bindings at all. I would have to use lot of Objective-C objects to operate the Bluetooth. There is also the [CoreBluetooth](https://developer.apple.com/documentation/corebluetooth) framework which only serves Bluetooth Low Energy (BLE) devices, and there are more bindings or high-level frameworks out there for Rust based on it. However, since the classic Bluetooth is meant for continuous connection and data streaming, I would say BLE is less suitable for my use case.
 
-Instead of writing the Rust bindings by myself, I decided to create a sub-project with Swift to interface with IOBluetooth. It exposes a small interface for the Rust code to call into. I won’t get into details of the Bluetooth protocol, e.g. what’s the difference between RFCOMM channels and L2CAP channels. We really don’t need to know that much to be able to send arbitrary binary data, which is implemented in [this file](https://github.com/lun0522/HotasRemapper/blob/main/HotasRemapperBt/Sources/HotasRemapperBt/BluetoothManager.swift).
+Instead of writing the Rust bindings by myself, I decided to create a sub-project with Swift to interface with IOBluetooth. It exposes a small interface for the Rust code to call into. I won’t get into details of the Bluetooth protocol, e.g. what’s the difference between RFCOMM channels and L2CAP channels. We really don’t need to know that much to be able to send arbitrary binary data, which is implemented in [this file](https://github.com/lun0522/HotasRemapper/blob/792485d8fb47228d399e0e02125bd7bbd35fe696/HotasRemapperBt/Sources/HotasRemapperBt/BluetoothManager.swift).
 
 In order to enable the Rust code to call into Swift functions, I also have to pull in the [swift-rs](https://crates.io/crates/swift-rs) crate. That really simplifies things so I’m very grateful. Is it possible to just rewrite the Swift code in Rust and get rid of these bridges? I presume that is possible with the help of crates like [objc2](https://crates.io/crates/objc2). It is not my top priority, though.
 
@@ -155,7 +157,7 @@ There are other tools for generating such descriptors. For example:
 
 So, my workflow is using (1) along with the descriptor parser website. After I got familiar with it, I could really just directly edit the descriptor string.
 
-Once the descriptor is finalized, it is easy for the computer to generate the input report accordingly, see `KeyboardInputReport` in [this file](https://github.com/lun0522/HotasRemapper/blob/main/HotasRemapperLib/src/virtual_device.rs). It is also fairly easy for the Raspberry Pi to open a Bluetooth socket, listen to connection from the computer, and write whatever data it receives to the USB port, see [this script](https://github.com/lun0522/HotasRemapper/blob/main/HotasRemapperRPi/run_service.py).
+Once the descriptor is finalized, it is easy for the computer to generate the input report accordingly, see `KeyboardInputReport` in [this file](https://github.com/lun0522/HotasRemapper/blob/main/HotasRemapperLib/src/virtual_device/mod.rs). It is also fairly easy for the Raspberry Pi to open a Bluetooth socket, listen to connection from the computer, and write whatever data it receives to the USB port, see [this script](https://github.com/lun0522/HotasRemapper/blob/main/HotasRemapperRPi/run_service.py).
 
 ## Axis Remapping
 
@@ -170,3 +172,9 @@ Another approach I tried was to make the Raspberry Pi function as an absolute mo
 This project proves that it is possible to remap most of HOTAS inputs to keyboard events, and feed those events to the console via a single board computer. The limitation mostly comes from axis remapping, but workarounds have been found and it at least satisfies the needs of a casual gamer. The only hardware cost is a Raspberry Pi Zero 2 W with supporting cables, and you may just reuse similar hardware from your other projects. That really opens the door to using more gaming devices on the console as long as they can be remapped in some way, and the game has keyboard support.
 
 I’ll be doing more experiments, e.g. try tweaking Greenlight to remap the throttle’s main axis to another thumbstick. Code-wise, there are also some stuff on my to-do list, such as rewriting the Bluetooth code in Rust and making the code cross-platform. Stay tuned for updates. Happy coding!
+
+# Updates
+
+## 2024-01-25 Bluetooth Code Rewritten in Rust
+
+The Bluetooth related code was initially written in Swift to make it easier to use Objective-C APIs. I’ve learnt to use the [objc](https://crates.io/crates/objc) crate to directly interact with those APIs from Rust (see [this folder](https://github.com/lun0522/HotasRemapper/tree/main/HotasRemapperLib/src/virtual_device)), and thus we no longer depend on the [swift-rs](https://crates.io/crates/swift-rs) crate.

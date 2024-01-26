@@ -8,7 +8,6 @@ crate-type = ["lib", "staticlib"]
 
 [dependencies]
 anyhow = "*"
-cocoa = "0.25.0"
 core-foundation = "0.9.4"
 io-kit-sys = "0.4.0"
 objc = "0.2.7"
