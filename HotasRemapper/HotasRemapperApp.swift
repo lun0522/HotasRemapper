@@ -25,7 +25,11 @@ private class AppDelegate: NSObject, NSApplicationDelegate {
   }
 
   func applicationDidFinishLaunching(_ notification: Notification) {
-    NSApp.activate()
+    if #available(macOS 14.0, *) {
+      NSApp.activate()
+    } else {
+      NSApp.activate(ignoringOtherApps: true)
+    }
     if didGrantAccess {
       let settings =
         UserDefaults.standard.string(
