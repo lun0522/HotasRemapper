@@ -5,9 +5,9 @@ use std::fmt::Formatter;
 use std::fmt::Result as FmtResult;
 
 use super::convert_key_codes;
-use super::KeyEvent;
 use super::RemapInputValue;
 use crate::input_remapping::ToggleSwitchInput;
+use crate::virtual_device::KeyEvent;
 
 pub(crate) struct ToggleSwitchRemapper {
     on_key_code: c_char,
@@ -28,22 +28,13 @@ impl TryFrom<&ToggleSwitchInput> for ToggleSwitchRemapper {
 }
 
 impl RemapInputValue for ToggleSwitchRemapper {
-    fn remap(&mut self, value: i32) -> Option<Vec<KeyEvent>> {
+    fn remap(&mut self, value: i32) -> Option<KeyEvent> {
         let key_code = if value != 0 {
             self.on_key_code
         } else {
             self.off_key_code
         };
-        Some(vec![
-            KeyEvent {
-                key_code,
-                is_pressed: true,
-            },
-            KeyEvent {
-                key_code,
-                is_pressed: false,
-            },
-        ])
+        Some(KeyEvent::PressAndRelease(key_code))
     }
 }
 

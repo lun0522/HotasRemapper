@@ -26,11 +26,7 @@ use crate::input_reader::hid_device_input::DeviceInput;
 use crate::input_reader::hid_device_input::InputType;
 use crate::input_remapping::InputRemapping;
 use crate::input_remapping::RemappedInput;
-
-pub(crate) struct KeyEvent {
-    pub key_code: c_char,
-    pub is_pressed: bool,
-}
+use crate::virtual_device::KeyEvent;
 
 #[derive(Eq, Hash, PartialEq)]
 struct InputIdentifier {
@@ -48,7 +44,7 @@ impl From<&InputEvent> for InputIdentifier {
 }
 
 trait RemapInputValue: Display {
-    fn remap(&mut self, value: i32) -> Option<Vec<KeyEvent>>;
+    fn remap(&mut self, value: i32) -> Option<KeyEvent>;
 }
 
 pub(crate) struct InputRemapper {
@@ -78,7 +74,7 @@ impl InputRemapper {
     pub fn remap_input_event(
         &mut self,
         input_event: &InputEvent,
-    ) -> Option<Vec<KeyEvent>> {
+    ) -> Option<KeyEvent> {
         self.input_remappers
             .get_mut(&input_event.into())
             .and_then(|remapper| remapper.remap(input_event.value))
@@ -89,6 +85,7 @@ impl InputRemapper {
         input_remapping: &InputRemapping,
         device_type: DeviceType,
     ) -> Result<()> {
+        println!("Remapping for {:?}:", device_type);
         let remapped_inputs = match device_type {
             DeviceType::Joystick => &input_remapping.joystick_inputs,
             DeviceType::Throttle => &input_remapping.throttle_inputs,
@@ -107,10 +104,7 @@ impl InputRemapper {
                     index: *index,
                 };
                 let input_remapper = Self::create_input_remapper(input)?;
-                println!(
-                    "Remapping {:?} {} to {}",
-                    device_type, device_input, input_remapper
-                );
+                println!("\t{} -> {}", device_input, input_remapper);
                 self.input_remappers.insert(
                     InputIdentifier {
                         device_type,

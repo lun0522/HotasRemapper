@@ -157,15 +157,10 @@ impl DeviceManager {
                 if let Some(input_event) =
                     device.interpret_raw_input_event(raw_input_event)
                 {
-                    if let Some(key_events) =
+                    if let Some(key_event) =
                         self.input_remapper.remap_input_event(&input_event)
                     {
-                        for key_event in key_events {
-                            self.virtual_deivce.send_output_with_new_key_event(
-                                key_event.key_code,
-                                key_event.is_pressed,
-                            )
-                        }
+                        self.virtual_deivce.send_key_event(key_event);
                     }
                 }
                 return;
@@ -253,10 +248,12 @@ fn dump_settings(settings: &Settings) -> String {
 \tThrottle device name: {:?}
 \tVirtual device MAC address: {}
 \tRFCOMM channel ID: {}
+\tRate limiting threshold (ms): {}
 ",
         settings.input_reader_settings.joystick_device_name,
         settings.input_reader_settings.throttle_device_name,
         settings.virtual_device_settings.mac_address,
-        settings.virtual_device_settings.rfcomm_channel_id
+        settings.virtual_device_settings.rfcomm_channel_id,
+        settings.virtual_device_settings.rate_limiting_threshold_ms,
     )
 }

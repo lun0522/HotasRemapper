@@ -90,12 +90,15 @@ impl BluetoothDevice {
         self.is_rfcomm_channel_opened = is_opened;
     }
 
-    pub fn send_data(&self, data: *const c_char, length: u32) {
+    pub fn send_data(&self, data: &[c_char]) {
         if !self.is_rfcomm_channel_opened {
             return;
         }
         let ret: IOReturn = unsafe {
-            msg_send![self.rfcomm_channel, writeSync: data length: length]
+            msg_send![
+                self.rfcomm_channel,
+                writeSync: data
+                length: data.len() as u16]
         };
         if ret != kIOReturnSuccess {
             println!("Failed to write to RFCOMM channel: {}", ret);

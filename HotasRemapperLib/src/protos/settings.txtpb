@@ -5,4 +5,5 @@ input_reader_settings {
 virtual_device_settings {
     mac_address: "b8-27-eb-c7-5b-1d"
     rfcomm_channel_id: 1
+    rate_limiting_threshold_ms: 16
 }

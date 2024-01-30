@@ -10,6 +10,7 @@ message InputRemapperSettings {}
 message VirtualDeviceSettings {
   string mac_address = 1;
   int32 rfcomm_channel_id = 2;
+  int32 rate_limiting_threshold_ms = 3;
 }
 
 message Settings {

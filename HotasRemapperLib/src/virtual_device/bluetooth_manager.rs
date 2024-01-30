@@ -68,9 +68,9 @@ impl<T: SelectDevice> BluetoothManager<T> {
         manager
     }
 
-    pub fn send_data_to_target_device(&self, data: *const c_char, length: u32) {
+    pub fn send_data_to_target_device(&self, data: &[c_char]) {
         if let Some(device) = self.target_device.as_ref() {
-            device.send_data(data, length);
+            device.send_data(data);
         }
     }
 

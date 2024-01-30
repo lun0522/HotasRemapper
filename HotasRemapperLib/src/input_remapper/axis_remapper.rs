@@ -5,9 +5,9 @@ use std::fmt::Formatter;
 use std::fmt::Result as FmtResult;
 
 use super::convert_key_codes;
-use super::KeyEvent;
 use super::RemapInputValue;
 use crate::input_remapping::AxisInput;
+use crate::virtual_device::KeyEvent;
 
 pub(crate) struct AxisRemapper {
     key_codes: Vec<c_char>,
@@ -35,21 +35,12 @@ impl TryFrom<&AxisInput> for AxisRemapper {
 }
 
 impl RemapInputValue for AxisRemapper {
-    fn remap(&mut self, value: i32) -> Option<Vec<KeyEvent>> {
+    fn remap(&mut self, value: i32) -> Option<KeyEvent> {
         let index_f64 = (value as f64 - self.min_value) / self.interval;
         let index =
             (index_f64.round() as usize).clamp(0, self.key_codes.len() - 1);
         let key_code = self.key_codes[index];
-        Some(vec![
-            KeyEvent {
-                key_code,
-                is_pressed: true,
-            },
-            KeyEvent {
-                key_code,
-                is_pressed: false,
-            },
-        ])
+        Some(KeyEvent::PressAndRelease(key_code))
     }
 }
 

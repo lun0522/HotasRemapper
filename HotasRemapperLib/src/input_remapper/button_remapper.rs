@@ -5,9 +5,9 @@ use std::fmt::Formatter;
 use std::fmt::Result as FmtResult;
 
 use super::convert_key_code;
-use super::KeyEvent;
 use super::RemapInputValue;
 use crate::input_remapping::ButtonInput;
+use crate::virtual_device::KeyEvent;
 
 pub(crate) struct ButtonRemapper {
     key_code: c_char,
@@ -22,11 +22,12 @@ impl TryFrom<&ButtonInput> for ButtonRemapper {
 }
 
 impl RemapInputValue for ButtonRemapper {
-    fn remap(&mut self, value: i32) -> Option<Vec<KeyEvent>> {
-        Some(vec![KeyEvent {
-            key_code: self.key_code,
-            is_pressed: value != 0,
-        }])
+    fn remap(&mut self, value: i32) -> Option<KeyEvent> {
+        Some(if value != 0 {
+            KeyEvent::Press(self.key_code)
+        } else {
+            KeyEvent::Release(self.key_code)
+        })
     }
 }
 

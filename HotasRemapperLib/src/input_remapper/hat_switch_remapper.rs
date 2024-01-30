@@ -7,9 +7,9 @@ use std::fmt::Result as FmtResult;
 use anyhow::anyhow;
 
 use super::convert_key_codes;
-use super::KeyEvent;
 use super::RemapInputValue;
 use crate::input_remapping::HatSwitchInput;
+use crate::virtual_device::KeyEvent;
 
 pub(crate) struct HatSwitchRemapper {
     key_codes: Vec<c_char>,
@@ -37,7 +37,7 @@ impl TryFrom<&HatSwitchInput> for HatSwitchRemapper {
 }
 
 impl RemapInputValue for HatSwitchRemapper {
-    fn remap(&mut self, value: i32) -> Option<Vec<KeyEvent>> {
+    fn remap(&mut self, value: i32) -> Option<KeyEvent> {
         // An 8-way switch may emit value 15 to signal that the hat has returned
         // to the center, so we can't always use `value` as the index.
         let curr_key_code =
@@ -47,28 +47,16 @@ impl RemapInputValue for HatSwitchRemapper {
         }
         let last_key_code = self.last_key_code;
         self.last_key_code = curr_key_code;
-        if last_key_code == 0 {
-            Some(vec![KeyEvent {
-                key_code: curr_key_code,
-                is_pressed: true,
-            }])
+        Some(if last_key_code == 0 {
+            KeyEvent::Press(curr_key_code)
         } else if curr_key_code == 0 {
-            Some(vec![KeyEvent {
-                key_code: last_key_code,
-                is_pressed: false,
-            }])
+            KeyEvent::Release(last_key_code)
         } else {
-            Some(vec![
-                KeyEvent {
-                    key_code: last_key_code,
-                    is_pressed: false,
-                },
-                KeyEvent {
-                    key_code: curr_key_code,
-                    is_pressed: true,
-                },
-            ])
-        }
+            KeyEvent::ReleaseAndPress {
+                to_release: last_key_code,
+                to_press: curr_key_code,
+            }
+        })
     }
 }
 
