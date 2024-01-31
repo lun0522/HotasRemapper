@@ -35,7 +35,7 @@ impl TryFrom<&AxisInput> for AxisRemapper {
 }
 
 impl RemapInputValue for AxisRemapper {
-    fn remap(&mut self, value: i32) -> Option<KeyEvent> {
+    fn remap(&self, value: i32) -> Option<KeyEvent> {
         let index_f64 = (value as f64 - self.min_value) / self.interval;
         let index =
             (index_f64.round() as usize).clamp(0, self.key_codes.len() - 1);

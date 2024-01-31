@@ -1,3 +1,4 @@
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::convert::From;
 use std::ffi::c_char;
@@ -30,7 +31,7 @@ use crate::ConnectionType;
 
 pub(crate) struct DeviceManager {
     hid_manager: HIDManager,
-    hid_devices: HashMap<IOHIDDeviceRef, HIDDevice>,
+    hid_devices: RefCell<HashMap<IOHIDDeviceRef, HIDDevice>>,
     virtual_deivce: VirtualDevice,
     input_remapper: InputRemapper,
     connection_status_callback: ConnectionStatusCallback,
@@ -57,7 +58,7 @@ impl DeviceManager {
         };
         println!("Initializing with settings: {}", dump_settings(&settings));
 
-        let mut manager = Box::pin(Self {
+        let manager = Box::pin(Self {
             hid_manager: HIDManager::new(&settings.input_reader_settings)?,
             hid_devices: Default::default(),
             virtual_deivce: VirtualDevice::new(
@@ -71,8 +72,7 @@ impl DeviceManager {
         // Safe because we won't move `DeviceManager` out of the pinned object,
         // and it outlives its member `HIDManager`.
         unsafe {
-            let pinned_manager_ptr =
-                manager.as_mut().get_unchecked_mut() as *mut Self as *mut _;
+            let pinned_manager_ptr = &*manager.as_ref() as *const Self;
             manager
                 .as_ref()
                 .hid_manager
@@ -105,7 +105,7 @@ impl DeviceManager {
         };
     }
 
-    fn handle_device_matched(&mut self, device_ref: IOHIDDeviceRef) {
+    fn handle_device_matched(&self, device_ref: IOHIDDeviceRef) {
         let device_property = DeviceProperty::from_device(device_ref);
         if let Some(device_type) = self
             .hid_manager
@@ -115,13 +115,14 @@ impl DeviceManager {
             // same type.
             if !self
                 .hid_devices
+                .borrow()
                 .iter()
                 .any(|(_, device)| device.device_type() == device_type)
             {
                 println!("Found {:?} device: {}", device_type, device_property);
-                let pinned_manager_ptr = self as *mut DeviceManager;
+                let pinned_manager_ptr = self as *const DeviceManager;
                 // Safe because the device is alive, and `self` outlives it.
-                self.hid_devices.insert(device_ref, unsafe {
+                self.hid_devices.borrow_mut().insert(device_ref, unsafe {
                     HIDDevice::open_device(
                         device_ref,
                         device_type,
@@ -138,8 +139,9 @@ impl DeviceManager {
         println!("Ignoring device: {}", device_property);
     }
 
-    fn handle_device_removed(&mut self, device_ref: IOHIDDeviceRef) {
-        if let Some(device) = self.hid_devices.remove(&device_ref) {
+    fn handle_device_removed(&self, device_ref: IOHIDDeviceRef) {
+        if let Some(device) = self.hid_devices.borrow_mut().remove(&device_ref)
+        {
             let device_type = device.device_type();
             self.report_connection_status(
                 device_type,
@@ -149,10 +151,10 @@ impl DeviceManager {
         }
     }
 
-    fn handle_input_received(&mut self, value: IOHIDValueRef) {
+    fn handle_input_received(&self, value: IOHIDValueRef) {
         if let Some(raw_input_event) = HIDDevice::read_raw_input_event(value) {
             if let Some(device) =
-                self.hid_devices.get(&raw_input_event.device_ref)
+                self.hid_devices.borrow().get(&raw_input_event.device_ref)
             {
                 if let Some(input_event) =
                     device.interpret_raw_input_event(raw_input_event)
@@ -212,7 +214,8 @@ extern "C" fn handle_device_matched(
     device: IOHIDDeviceRef,
 ) {
     // Safe because we stored a pointer to a pinned `DeviceManager`.
-    if let Some(manager) = unsafe { (context as *mut DeviceManager).as_mut() } {
+    if let Some(manager) = unsafe { (context as *const DeviceManager).as_ref() }
+    {
         manager.handle_device_matched(device);
     }
 }
@@ -224,7 +227,8 @@ extern "C" fn handle_device_removed(
     device: IOHIDDeviceRef,
 ) {
     // Safe because we stored a pointer to a pinned `DeviceManager`.
-    if let Some(manager) = unsafe { (context as *mut DeviceManager).as_mut() } {
+    if let Some(manager) = unsafe { (context as *const DeviceManager).as_ref() }
+    {
         manager.handle_device_removed(device);
     }
 }
@@ -236,7 +240,8 @@ extern "C" fn handle_input_received(
     value: IOHIDValueRef,
 ) {
     // Safe because we stored a pointer to a pinned `DeviceManager`.
-    if let Some(manager) = unsafe { (context as *mut DeviceManager).as_mut() } {
+    if let Some(manager) = unsafe { (context as *const DeviceManager).as_ref() }
+    {
         manager.handle_input_received(value);
     }
 }

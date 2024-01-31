@@ -1,3 +1,4 @@
+use std::cell::RefCell;
 use std::ffi::c_char;
 use std::ffi::c_void;
 use std::marker::PhantomPinned;
@@ -26,7 +27,7 @@ use super::bluetooth_device::DeviceInfo;
 use crate::ConnectionStatusCallback;
 use crate::ConnectionType;
 
-type PinnedPointer = *mut c_void;
+type PinnedPointer = *const c_void;
 
 const PINNED_POINTER_VAR: &str = "pinnedPointer";
 
@@ -39,7 +40,7 @@ pub(crate) trait SelectDevice {
 pub(crate) struct BluetoothManager<T: SelectDevice> {
     this: StrongPtr,
     target_device_selector: T,
-    target_device: Option<BluetoothDevice>,
+    target_device: RefCell<Option<BluetoothDevice>>,
     rfcomm_channel_id: u8,
     connection_status_callback: ConnectionStatusCallback,
     // We want to make sure the `BluetoothManager` doesn't get moved, so
@@ -58,7 +59,7 @@ impl<T: SelectDevice> BluetoothManager<T> {
         let mut manager = Box::pin(Self {
             this: unsafe { new_object(class!(BluetoothManager)) },
             target_device_selector,
-            target_device: None,
+            target_device: RefCell::new(None),
             rfcomm_channel_id,
             connection_status_callback,
             _pinned_marker: PhantomPinned,
@@ -69,7 +70,7 @@ impl<T: SelectDevice> BluetoothManager<T> {
     }
 
     pub fn send_data_to_target_device(&self, data: &[c_char]) {
-        if let Some(device) = self.target_device.as_ref() {
+        if let Some(device) = self.target_device.borrow().as_ref() {
             device.send_data(data);
         }
     }
@@ -102,8 +103,8 @@ impl<T: SelectDevice> BluetoothManager<T> {
         decl.register();
     }
 
-    unsafe fn store_self_pointer(self: Pin<&mut Self>) {
-        let self_ptr = &*self as *const Self as *mut _;
+    unsafe fn store_self_pointer(&self) {
+        let self_ptr = &*self as *const Self as *const _;
         self.this
             .as_mut()
             .unwrap()
@@ -117,12 +118,12 @@ impl<T: SelectDevice> BluetoothManager<T> {
             selector: on_device_connected_selector()];
     }
 
-    unsafe fn get_pinned_manager(this: &Object) -> Option<&mut Self> {
+    unsafe fn get_pinned_manager(this: &Object) -> Option<&Self> {
         let self_ptr = this.get_ivar::<PinnedPointer>(PINNED_POINTER_VAR);
-        (*self_ptr as *mut Self).as_mut()
+        (*self_ptr as *const Self).as_ref()
     }
 
-    fn handle_device_connected(&mut self, device: *const Object) {
+    fn handle_device_connected(&self, device: *const Object) {
         let device_info = DeviceInfo::new(device);
         if !self.target_device_selector.is_target_device(&device_info) {
             println!("Ignoring Bluetooth device: {}", device_info);
@@ -130,7 +131,7 @@ impl<T: SelectDevice> BluetoothManager<T> {
         }
         println!("Found target Bluetooth device: {}", device_info);
         // We may get notified more than once for the same device.
-        if self.target_device.is_some() {
+        if self.target_device.borrow().is_some() {
             return;
         }
 
@@ -140,22 +141,22 @@ impl<T: SelectDevice> BluetoothManager<T> {
                     ConnectionType::VirtualDevice,
                     /* is_connected= */ true,
                 );
-                self.target_device = Some(bluetooth_device);
+                self.target_device.replace(Some(bluetooth_device));
             }
             Err(e) => println!("Failed to connect to it: {:?}", e),
         }
     }
 
-    fn handle_target_device_disconnected(&mut self) {
+    fn handle_target_device_disconnected(&self) {
         println!("Target Bluetooth device disconnected");
         self.report_connection_status(
             ConnectionType::VirtualDevice,
             /* is_connected= */ false,
         );
-        self.target_device = None;
+        self.target_device.replace(None);
     }
 
-    fn handle_rfcomm_channel_opened(&mut self, status: IOReturn) {
+    fn handle_rfcomm_channel_opened(&self, status: IOReturn) {
         if status != kIOReturnSuccess {
             println!("Failed to open RFCOMM channel: {}", status);
             return;
@@ -166,7 +167,7 @@ impl<T: SelectDevice> BluetoothManager<T> {
             ConnectionType::RFCOMMChannel,
             /* is_connected= */ true,
         );
-        match self.target_device.as_mut() {
+        match self.target_device.borrow_mut().as_mut() {
             Some(device) => {
                 device.update_rfcomm_channel_status(/* is_opened= */ true)
             }
@@ -174,13 +175,13 @@ impl<T: SelectDevice> BluetoothManager<T> {
         }
     }
 
-    fn handle_rfcomm_channel_closed(&mut self) {
+    fn handle_rfcomm_channel_closed(&self) {
         println!("RFCOMM channel closed");
         self.report_connection_status(
             ConnectionType::RFCOMMChannel,
             /* is_connected= */ false,
         );
-        match self.target_device.as_mut() {
+        match self.target_device.borrow_mut().as_mut() {
             Some(device) => {
                 device.update_rfcomm_channel_status(/* is_opened= */ false)
             }

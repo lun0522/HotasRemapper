@@ -22,7 +22,7 @@ impl TryFrom<&ButtonInput> for ButtonRemapper {
 }
 
 impl RemapInputValue for ButtonRemapper {
-    fn remap(&mut self, value: i32) -> Option<KeyEvent> {
+    fn remap(&self, value: i32) -> Option<KeyEvent> {
         Some(if value != 0 {
             KeyEvent::Press(self.key_code)
         } else {

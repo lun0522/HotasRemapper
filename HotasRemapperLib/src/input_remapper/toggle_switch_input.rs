@@ -28,7 +28,7 @@ impl TryFrom<&ToggleSwitchInput> for ToggleSwitchRemapper {
 }
 
 impl RemapInputValue for ToggleSwitchRemapper {
-    fn remap(&mut self, value: i32) -> Option<KeyEvent> {
+    fn remap(&self, value: i32) -> Option<KeyEvent> {
         let key_code = if value != 0 {
             self.on_key_code
         } else {

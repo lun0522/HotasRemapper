@@ -122,7 +122,7 @@ impl HIDDevice {
     pub unsafe fn open_device<T: HandleInputEvent>(
         device: IOHIDDeviceRef,
         device_type: DeviceType,
-        pinned_handler_ptr: *mut T,
+        pinned_handler_ptr: *const T,
     ) -> Self {
         IOHIDDeviceRegisterInputValueCallback(
             device,

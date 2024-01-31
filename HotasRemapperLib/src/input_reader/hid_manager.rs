@@ -69,7 +69,7 @@ impl HIDManager {
     /// Safety: the caller must ensure the pinned handler outlives `HIDManager`.
     pub unsafe fn set_device_callbacks<T: HandleDeviceEvent>(
         &self,
-        pinned_handler_ptr: *mut T,
+        pinned_handler_ptr: *const T,
     ) {
         set_device_callbacks::<T>(&self.manager_ref, pinned_handler_ptr);
     }
@@ -139,7 +139,7 @@ unsafe fn open_manager(manager_ref: &IOHIDManagerRef) -> Result<()> {
 /// The caller must ensure `manager_ref` is still alive.
 unsafe fn set_device_callbacks<T: HandleDeviceEvent>(
     manager_ref: &IOHIDManagerRef,
-    pinned_handler_ptr: *mut T,
+    pinned_handler_ptr: *const T,
 ) {
     IOHIDManagerRegisterDeviceMatchingCallback(
         *manager_ref,

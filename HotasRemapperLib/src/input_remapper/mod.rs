@@ -44,7 +44,7 @@ impl From<&InputEvent> for InputIdentifier {
 }
 
 trait RemapInputValue: Display {
-    fn remap(&mut self, value: i32) -> Option<KeyEvent>;
+    fn remap(&self, value: i32) -> Option<KeyEvent>;
 }
 
 pub(crate) struct InputRemapper {
@@ -72,11 +72,11 @@ impl InputRemapper {
     }
 
     pub fn remap_input_event(
-        &mut self,
+        &self,
         input_event: &InputEvent,
     ) -> Option<KeyEvent> {
         self.input_remappers
-            .get_mut(&input_event.into())
+            .get(&input_event.into())
             .and_then(|remapper| remapper.remap(input_event.value))
     }
 
